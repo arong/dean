@@ -1,0 +1,10 @@
+# specific file
+routers/commentsRouter_.go
+routers/commentsRouter_controllers.go
+# filetype
+*.exe
+*~
+*.tmp
+
+# directory
+swagger/
