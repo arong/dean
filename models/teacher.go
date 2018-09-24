@@ -1,6 +1,34 @@
 package models
 
-import "errors"
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	_ "github.com/go-sql-driver/mysql"
+	"sync"
+)
+
+// a global handler
+var Tm TeacherManager
+var db *sql.DB
+
+func init() {
+	var err error
+	//orm.RegisterDriver("mysql", orm.DRMySQL)
+	//orm.RegisterDataBase("default", "mysql", "root:123456@tcp(localhost:3306)/lflss?charset=utf8")
+	//orm.SetMaxIdleConns("default", 1000)
+	//orm.SetMaxOpenConns("default", 2000)
+	//
+	//orm.RegisterModel(new(Teacher))
+	db, err = sql.Open("mysql", "root:123456@tcp(localhost:3306)/lflss?charset=utf8")
+	if err != nil {
+		panic("cannot connect to mysql")
+	}
+	// init global
+	Tm.Init()
+	Cm.Init()
+	Vm.Init()
+}
 
 type Teacher struct {
 	ID     int
@@ -12,6 +40,8 @@ type Teacher struct {
 type TeacherManager struct {
 	nameMap map[string]*Teacher // 名字索引
 	idMap   map[int]*Teacher    // id索引表
+	nextID  int
+	idMutex sync.Mutex
 }
 
 var (
@@ -20,22 +50,47 @@ var (
 	ErrNotExist     = errors.New("teacher not exist")
 )
 
-// a global handler
-var tm TeacherManager
+func (tm *TeacherManager) Init() {
+	tm.idMap = make(map[int]*Teacher)
+	tm.nameMap = make(map[string]*Teacher)
+}
+
+func (tm *TeacherManager) getID() int {
+	tm.idMutex.Lock()
+	tm.nextID++
+	ret := tm.nextID
+	tm.idMutex.Unlock()
+	return ret
+}
 
 func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 	if t.ID != 0 {
 		return ErrInvalidParam
 	}
 
+	if t.Name == "" {
+		return ErrInvalidParam
+	}
+
 	if _, ok := tm.nameMap[t.Name]; ok {
 		return ErrNameExist
 	}
-	// todo: validate parameter
+
+	if t.Mobile == "" {
+		return ErrInvalidParam
+	}
+
+	if t.Gender <= 0 && t.Gender > 3 {
+		return ErrInvalidParam
+	}
+
+	// assign new id
+	t.ID = tm.getID()
 
 	// add to map
 	tm.nameMap[t.Name] = t
-
+	tm.idMap[t.ID] = t
+	fmt.Println("id=", t.ID)
 	return nil
 }
 
@@ -71,4 +126,13 @@ func (tm *TeacherManager) GetTeacherList(ids []int) ([]*Teacher, error) {
 		}
 	}
 	return ret, nil
+}
+
+func (tm *TeacherManager) GetAll() []*Teacher {
+	ret := []*Teacher{}
+	for _, v := range tm.idMap {
+		tmp := *v
+		ret = append(ret, &tmp)
+	}
+	return ret
 }

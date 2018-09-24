@@ -4,6 +4,9 @@ import (
 	"errors"
 )
 
+// global manager
+var Cm ClassManager
+
 type Class struct {
 	ID         int
 	Name       string
@@ -25,6 +28,9 @@ var (
 )
 
 // maintain the relation between class and teacher
+func (cm *ClassManager)Init() {
+	cm.idMap = make(map[Filter]*Class)
+}
 func (cm *ClassManager) GetTeacherList(grade, index int) ([]*Teacher, error) {
 	ret := []*Teacher{}
 	key := Filter{
@@ -36,5 +42,5 @@ func (cm *ClassManager) GetTeacherList(grade, index int) ([]*Teacher, error) {
 	if !ok {
 		return ret, ErrClassNotExist
 	}
-	return tm.GetTeacherList(val.TeacherIDs)
+	return Tm.GetTeacherList(val.TeacherIDs)
 }

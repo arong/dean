@@ -1,11 +1,10 @@
 package controllers
 
 import (
-	"strconv"
-	"fmt"
+	"encoding/json"
 	"github.com/arong/dean/models"
 	"github.com/astaxie/beego"
-	"encoding/json"
+	"strconv"
 )
 
 // Operations about object
@@ -13,16 +12,14 @@ type TeacherController struct {
 	beego.Controller
 }
 
-
 // @Title Create
 // @Description create object
 // @Param	body		body 	models.Teacher	true		"The object content"
 // @Success 200 {string} models.Teacher.ID
-// @Failure 403 body is empty
 // @router / [post]
 func (o *TeacherController) Post() {
-	request := voteRequest{}
-	resp := commResp{Code: -1}
+	request := models.Teacher{}
+	resp := CommResp{Code: -1}
 
 	err := json.Unmarshal(o.Ctx.Input.RequestBody, &request)
 	if err != nil {
@@ -30,11 +27,14 @@ func (o *TeacherController) Post() {
 		goto Out
 	}
 
-	err = models.Vm.CastVote(request.Scores)
+	err = models.Tm.AddTeacher(&request)
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out
 	}
+	resp.Code = 0
+	resp.Msg = msgSuccess
+	resp.Data = nil
 Out:
 	o.Data["json"] = resp
 	o.ServeJSON()
@@ -42,27 +42,29 @@ Out:
 
 // @Title Get
 // @Description find object by objectid
-// @Param	objectId		path 	string	true		"the objectid you want to get"
-// @Success 200 {object} models.Teacher
-// @Failure 403 :objectId is empty
+// @Param	teacherID		path 	string	true		"the teacherID you want to get"
+// @Success 200 {object}	models.Teacher
+// @Failure 403 :teacherID is empty
 // @router /:teacherID [get]
 func (o *TeacherController) Get() {
-	resp := commResp{Code: -1}
+	resp := CommResp{Code: -1}
 	var err error
 	var id int
-	ret := &models.ScoreInfo{}
+	ret := &models.Teacher{}
+
 	teacherID := o.Ctx.Input.Param(":teacherID")
 	if teacherID == "" {
 		resp.Msg = invalidParam
 		goto Out
 	}
+
 	id, err = strconv.Atoi(teacherID)
 	if err != nil {
 		resp.Msg = invalidParam
 		goto Out
 	}
-	fmt.Println("teacherID=", id)
-	ret, err = models.Vm.GetScore(id)
+
+	ret, err = models.Tm.GetTeacherInfo(id)
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out
@@ -78,14 +80,31 @@ Out:
 // @Title GetAll
 // @Description get all objects
 // @Success 200 {object} models.Teacher
-// @Failure 403 :objectId is empty
 // @router / [get]
 func (o *TeacherController) GetAll() {
-	resp := &commResp{}
-	resp.Msg = msgSuccess
-	obs := models.Vm.GetAll()
-	resp.Data = obs
+	resp := &CommResp{
+		Code: 0,
+		Msg:  msgSuccess,
+		Data: models.Tm.GetAll(),
+	}
 	o.Data["json"] = resp
-	fmt.Println(obs)
 	o.ServeJSON()
+}
+
+// @Title Delete
+// @Description delete the user
+// @Param	uid		path 	string	true		"The uid you want to delete"
+// @Success 200 {string} delete success!
+// @Failure 403 uid is empty
+// @router /:uid [delete]
+func (tc*TeacherController) Delete() {
+	resp := &CommResp{Code:-1}
+	uid := tc.GetString(":uid")
+	id, err := strconv.Atoi(uid)
+	err = models.Tm.DelTeacher(id)
+	if err != nil {
+
+	}
+	tc.Data["json"] = resp
+	tc.ServeJSON()
 }

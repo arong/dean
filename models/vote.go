@@ -1,5 +1,6 @@
 package models
 
+// a global handler
 var Vm voteManager
 
 type voteManager struct {
@@ -17,13 +18,17 @@ type ScoreInfo struct {
 	Average float64 `json:"average"`
 }
 
+func (vm *voteManager) Init() {
+	vm.votes = make(map[int]*ScoreInfo)
+}
+
 func (s *ScoreInfo) AddScore(score int) {
 	s.votes = append(s.votes, score)
 
 }
 func (vm *voteManager) CastVote(votes []*VoteMeta) error {
 	for _, v := range votes {
-		if _, err := tm.GetTeacherInfo(v.TeacherID); err == nil {
+		if _, err := Tm.GetTeacherInfo(v.TeacherID); err == nil {
 			if val, ok := vm.votes[v.TeacherID]; !ok {
 				val = &ScoreInfo{}
 				val.AddScore(v.Score)
@@ -45,7 +50,7 @@ func (vm *voteManager) GetScore(teacherID int) (*ScoreInfo, error) {
 	return ret, ErrNotExist
 }
 
-func (vm *voteManager) GetAll() ([]*ScoreInfo) {
+func (vm *voteManager) GetAll() []*ScoreInfo {
 	ret := []*ScoreInfo{}
 	for _, v := range vm.votes {
 		tmp := *v

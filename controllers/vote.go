@@ -27,7 +27,7 @@ type voteRequest struct {
 // @router / [post]
 func (o *VoteController) Post() {
 	request := voteRequest{}
-	resp := commResp{Code: -1}
+	resp := CommResp{Code: -1}
 
 	err := json.Unmarshal(o.Ctx.Input.RequestBody, &request)
 	if err != nil {
@@ -52,7 +52,7 @@ Out:
 // @Failure 403 :objectId is empty
 // @router /:teacherID [get]
 func (o *VoteController) Get() {
-	resp := commResp{Code: -1}
+	resp := CommResp{Code: -1}
 	var err error
 	var id int
 	ret := &models.ScoreInfo{}
@@ -86,7 +86,7 @@ Out:
 // @Failure 403 :objectId is empty
 // @router / [get]
 func (o *VoteController) GetAll() {
-	resp := &commResp{}
+	resp := &CommResp{}
 	resp.Msg = msgSuccess
 	obs := models.Vm.GetAll()
 	resp.Data = obs
