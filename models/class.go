@@ -7,7 +7,13 @@ import (
 // global manager
 var Cm ClassManager
 
+// of size two byte
+// +--------+-------+
+// | Grade  | index |
+// +--------+-------+
 type ClassID int
+
+// Class is the
 type Class struct {
 	Filter
 	ID         ClassID

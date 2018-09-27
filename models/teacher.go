@@ -2,7 +2,6 @@ package models
 
 import (
 	"errors"
-	"fmt"
 	"github.com/astaxie/beego/logs"
 	"os"
 )
@@ -123,7 +122,7 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 	// add to map
 	tm.nameMap[t.Name] = t
 	tm.idMap[t.ID] = t
-	fmt.Println("id=", t.ID)
+	logs.Info("id=", t.ID)
 	return nil
 }
 
