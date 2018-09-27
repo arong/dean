@@ -49,7 +49,7 @@ Out:
 func (o *TeacherController) Get() {
 	resp := CommResp{Code: -1}
 	var err error
-	var id int
+	var id int64
 	ret := &models.Teacher{}
 
 	teacherID := o.Ctx.Input.Param(":teacherID")
@@ -58,7 +58,7 @@ func (o *TeacherController) Get() {
 		goto Out
 	}
 
-	id, err = strconv.Atoi(teacherID)
+	id, err = strconv.ParseInt(teacherID, 10, 64)
 	if err != nil {
 		resp.Msg = invalidParam
 		goto Out
@@ -96,14 +96,14 @@ func (o *TeacherController) GetAll() {
 // @Param	uid		path 	string	true		"The uid you want to delete"
 // @Success 200 {string} delete success!
 // @Failure 403 uid is empty
-// @router /:uid [delete]
-func (tc*TeacherController) Delete() {
-	resp := &CommResp{Code:-1}
-	uid := tc.GetString(":uid")
-	id, err := strconv.Atoi(uid)
+// @router /:teacherID [delete]
+func (tc *TeacherController) Delete() {
+	resp := &CommResp{Code: -1}
+	uid := tc.GetString(":teacherID")
+	id, err := strconv.ParseInt(uid, 10, 64)
 	err = models.Tm.DelTeacher(id)
 	if err != nil {
-
+		return
 	}
 	tc.Data["json"] = resp
 	tc.ServeJSON()

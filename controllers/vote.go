@@ -19,10 +19,50 @@ type voteRequest struct {
 	Scores   []*models.VoteMeta
 }
 
+type verifyVoteCode struct {
+	VoteCode string
+}
+
 // @Title Create
 // @Description create object
-// @Param	body		body 	models.Object	true		"The object content"
-// @Success 200 {string} models.Object.Id
+// @Param	body		body 	models.TeacherList	true		"The object content"
+// @Success 200 {string} models.TeacherList
+// @router / [post]
+func (o *VoteController) Describe() {
+	request := verifyVoteCode{}
+	resp := CommResp{Code: -1}
+	filter := &models.VoteCodeInfo{}
+	data := models.TeacherList{}
+
+	err := json.Unmarshal(o.Ctx.Input.RequestBody, &request)
+	if err != nil {
+		resp.Msg = invalidJSON
+		goto Out
+	}
+
+	filter, err = models.Decode(request.VoteCode)
+	if err != nil {
+		resp.Msg = "invalid vote code"
+		goto Out
+	}
+
+	data, err = models.Cm.GetTeacherList(filter.Grade, filter.Index)
+	if err != nil {
+		resp.Msg = err.Error()
+		goto Out
+	}
+	resp.Code = 0
+	resp.Msg = msgSuccess
+	resp.Data = data
+Out:
+	o.Data["json"] = resp
+	o.ServeJSON()
+}
+
+// @Title Create
+// @Description create object
+// @Param	body		body 	voteRequest	true		"The object content"
+// @Success 200 {string} 0
 // @Failure 403 body is empty
 // @router / [post]
 func (o *VoteController) Post() {
@@ -54,14 +94,14 @@ Out:
 func (o *VoteController) Get() {
 	resp := CommResp{Code: -1}
 	var err error
-	var id int
+	var id int64
 	ret := &models.ScoreInfo{}
 	teacherID := o.Ctx.Input.Param(":teacherID")
 	if teacherID == "" {
 		resp.Msg = invalidParam
 		goto Out
 	}
-	id, err = strconv.Atoi(teacherID)
+	id, err = strconv.ParseInt(teacherID, 10, 64)
 	if err != nil {
 		resp.Msg = invalidParam
 		goto Out

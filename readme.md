@@ -9,3 +9,6 @@ http://localhost:8090/swagger/
 
 ## sample url
 http://localhost:8090/v1/dean/vote
+
+
+## Design Considerations

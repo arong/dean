@@ -1,46 +1,49 @@
 package models
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql"
 	"sync"
 )
 
 // a global handler
 var Tm TeacherManager
-var db *sql.DB
+
+//var db *sql.DB
 
 func init() {
-	var err error
-	//orm.RegisterDriver("mysql", orm.DRMySQL)
-	//orm.RegisterDataBase("default", "mysql", "root:123456@tcp(localhost:3306)/lflss?charset=utf8")
-	//orm.SetMaxIdleConns("default", 1000)
-	//orm.SetMaxOpenConns("default", 2000)
-	//
-	//orm.RegisterModel(new(Teacher))
-	db, err = sql.Open("mysql", "root:123456@tcp(localhost:3306)/lflss?charset=utf8")
-	if err != nil {
-		panic("cannot connect to mysql")
-	}
 	// init global
+	Ma.Init()
 	Tm.Init()
 	Cm.Init()
 	Vm.Init()
 }
 
 type Teacher struct {
-	ID     int
+	ID     int64
 	Gender int    // 1: Male, 2: Female, 3: unknown
 	Name   string // 姓名
 	Mobile string // 手机号
 }
 
+type TeacherList []*Teacher
+
+func (tl TeacherList) Len() int {
+	return len(tl)
+}
+
+func (tl TeacherList) Swap(i, j int) {
+	tl[i], tl[j] = tl[i], tl[j]
+}
+
+func (tl TeacherList) Less(i, j int) bool {
+	return tl[i].ID < tl[j].ID
+}
+
 type TeacherManager struct {
 	nameMap map[string]*Teacher // 名字索引
-	idMap   map[int]*Teacher    // id索引表
-	nextID  int
+	idMap   map[int64]*Teacher  // id索引表
+	nextID  int64
 	idMutex sync.Mutex
 }
 
@@ -51,11 +54,24 @@ var (
 )
 
 func (tm *TeacherManager) Init() {
-	tm.idMap = make(map[int]*Teacher)
+	tm.idMap = make(map[int64]*Teacher)
 	tm.nameMap = make(map[string]*Teacher)
+
+	all, err := Ma.loadAllTeachers()
+	if err != nil {
+		return
+	}
+
+	for _, v := range all {
+		tm.idMap[v.ID] = v
+		tm.nameMap[v.Name] = v
+		if tm.nextID < v.ID {
+			tm.nextID = v.ID
+		}
+	}
 }
 
-func (tm *TeacherManager) getID() int {
+func (tm *TeacherManager) getID() int64 {
 	tm.idMutex.Lock()
 	tm.nextID++
 	ret := tm.nextID
@@ -85,8 +101,12 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 	}
 
 	// assign new id
-	t.ID = tm.getID()
+	//t.ID = tm.getID()
 
+	err := Ma.InsertTeacher(t)
+	if err != nil {
+		return err
+	}
 	// add to map
 	tm.nameMap[t.Name] = t
 	tm.idMap[t.ID] = t
@@ -94,7 +114,7 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 	return nil
 }
 
-func (tm *TeacherManager) DelTeacher(id int) error {
+func (tm *TeacherManager) DelTeacher(id int64) error {
 	val, ok := tm.idMap[id]
 	if !ok {
 		return ErrNotExist
@@ -107,7 +127,7 @@ func (tm *TeacherManager) DelTeacher(id int) error {
 	return nil
 }
 
-func (tm *TeacherManager) GetTeacherInfo(id int) (*Teacher, error) {
+func (tm *TeacherManager) GetTeacherInfo(id int64) (*Teacher, error) {
 	ret := &Teacher{}
 	err := ErrNotExist
 	if val, ok := tm.idMap[id]; ok {
@@ -117,7 +137,7 @@ func (tm *TeacherManager) GetTeacherInfo(id int) (*Teacher, error) {
 	return ret, err
 }
 
-func (tm *TeacherManager) GetTeacherList(ids []int) ([]*Teacher, error) {
+func (tm *TeacherManager) GetTeacherList(ids []int64) ([]*Teacher, error) {
 	ret := []*Teacher{}
 	for _, v := range ids {
 		if val, ok := tm.idMap[v]; ok {
