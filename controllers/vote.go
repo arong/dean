@@ -6,7 +6,7 @@ import (
 
 	"fmt"
 	"github.com/astaxie/beego"
-	"strconv"
+	"github.com/astaxie/beego/logs"
 )
 
 // Operations about object
@@ -19,57 +19,17 @@ type voteRequest struct {
 	Scores   []*models.VoteMeta
 }
 
-type verifyVoteCode struct {
-	VoteCode string
-}
-
-// @Title Create
-// @Description create object
-// @Param	body		body 	models.TeacherList	true		"The object content"
-// @Success 200 {string} models.TeacherList
-// @router / [post]
-func (o *VoteController) Describe() {
-	request := verifyVoteCode{}
-	resp := CommResp{Code: -1}
-	filter := &models.VoteCodeInfo{}
-	data := models.TeacherList{}
-
-	err := json.Unmarshal(o.Ctx.Input.RequestBody, &request)
-	if err != nil {
-		resp.Msg = invalidJSON
-		goto Out
-	}
-
-	filter, err = models.Decode(request.VoteCode)
-	if err != nil {
-		resp.Msg = "invalid vote code"
-		goto Out
-	}
-
-	data, err = models.Cm.GetTeacherList(filter.Grade, filter.Index)
-	if err != nil {
-		resp.Msg = err.Error()
-		goto Out
-	}
-	resp.Code = 0
-	resp.Msg = msgSuccess
-	resp.Data = data
-Out:
-	o.Data["json"] = resp
-	o.ServeJSON()
-}
-
 // @Title Create
 // @Description create object
 // @Param	body		body 	voteRequest	true		"The object content"
 // @Success 200 {string} 0
 // @Failure 403 body is empty
 // @router / [post]
-func (o *VoteController) Post() {
+func (v *VoteController) Post() {
 	request := voteRequest{}
 	resp := CommResp{Code: -1}
 
-	err := json.Unmarshal(o.Ctx.Input.RequestBody, &request)
+	err := json.Unmarshal(v.Ctx.Input.RequestBody, &request)
 	if err != nil {
 		resp.Msg = invalidJSON
 		goto Out
@@ -81,8 +41,8 @@ func (o *VoteController) Post() {
 		goto Out
 	}
 Out:
-	o.Data["json"] = resp
-	o.ServeJSON()
+	v.Data["json"] = resp
+	v.ServeJSON()
 }
 
 // @Title Get
@@ -90,34 +50,38 @@ Out:
 // @Param	objectId		path 	string	true		"the objectid you want to get"
 // @Success 200 {object} models.ScoreInfo
 // @Failure 403 :objectId is empty
-// @router /:teacherID [get]
-func (o *VoteController) Get() {
+// @router /:voteCode [get]
+func (v *VoteController) Get() {
 	resp := CommResp{Code: -1}
 	var err error
-	var id int64
-	ret := &models.ScoreInfo{}
-	teacherID := o.Ctx.Input.Param(":teacherID")
-	if teacherID == "" {
+	var filter *models.VoteCodeInfo
+	var data *models.ClassResp
+
+	voteCode := v.Ctx.Input.Param(":voteCode")
+	if voteCode == "" {
 		resp.Msg = invalidParam
 		goto Out
 	}
-	id, err = strconv.ParseInt(teacherID, 10, 64)
+
+	filter, err = models.Decode(voteCode)
 	if err != nil {
-		resp.Msg = invalidParam
+		resp.Msg = "invalid vote code"
 		goto Out
 	}
-	fmt.Println("teacherID=", id)
-	ret, err = models.Vm.GetScore(id)
+
+	logs.Debug("receive a vote", "voteCode", voteCode)
+
+	data, err = models.Cm.GetInfo(&filter.Filter)
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out
 	}
 	resp.Code = 0
 	resp.Msg = msgSuccess
-	resp.Data = ret
+	resp.Data = data
 Out:
-	o.Data["json"] = resp
-	o.ServeJSON()
+	v.Data["json"] = resp
+	v.ServeJSON()
 }
 
 // @Title GetAll
@@ -125,12 +89,12 @@ Out:
 // @Success 200 {object} models.ScoreInfo
 // @Failure 403 :objectId is empty
 // @router / [get]
-func (o *VoteController) GetAll() {
+func (v *VoteController) GetAll() {
 	resp := &CommResp{}
 	resp.Msg = msgSuccess
 	obs := models.Vm.GetAll()
 	resp.Data = obs
-	o.Data["json"] = resp
+	v.Data["json"] = resp
 	fmt.Println(obs)
-	o.ServeJSON()
+	v.ServeJSON()
 }

@@ -1,4 +1,4 @@
-CREATE TABLE `woda_sit`.`Untitled`  (
+CREATE TABLE `tbTeacherScore`  (
   `iTeacherScoreID` int(11) unsigned NOT NULL AUTO_INCREMENT                                           COMMENT '主键',
   `iTeacherID`      int(11)          NOT NULL DEFAULT '0'                                              COMMENT '教师表主键',
   `iScore`          int(11)          NOT NULL DEFAULT '0'                                              COMMENT '分数',

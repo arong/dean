@@ -19,9 +19,9 @@ const (
 
 func init() {
 	ns := beego.NewNamespace(fixedPath,
-		beego.NSNamespace("/user",
+		beego.NSNamespace("/class",
 			beego.NSInclude(
-				&controllers.UserController{},
+				&controllers.ClassController{},
 			),
 		),
 		beego.NSNamespace("/vote",
@@ -32,6 +32,11 @@ func init() {
 		beego.NSNamespace("/teacher",
 			beego.NSInclude(
 				&controllers.TeacherController{},
+			),
+		),
+		beego.NSNamespace("/score",
+			beego.NSInclude(
+				&controllers.ScoreController{},
 			),
 		),
 	)

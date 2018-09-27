@@ -18,9 +18,13 @@ type Class struct {
 	Filter
 	ID         ClassID
 	Name       string
-	TeacherIDs []int64 // 教师id
+	TeacherIDs []int64 `json:"-"` // id
 }
 
+type ClassResp struct {
+	Class
+	Teachers TeacherList // 详情
+}
 type ClassList []*Class
 
 type Filter struct {
@@ -56,16 +60,35 @@ func (cm *ClassManager) Init(data map[ClassID]*Class) {
 	}
 }
 
-func (cm *ClassManager) GetTeacherList(grade, index int) (TeacherList, error) {
-	ret := TeacherList{}
-	key := Filter{
-		Grade: grade,
-		Index: index,
+func (cm *ClassManager) GetAll() ClassList {
+	ret := ClassList{}
+	for _, v := range cm.idMap {
+		ret = append(ret, v)
+	}
+	return ret
+}
+
+func (cm *ClassManager) GetInfo(f *Filter) (*ClassResp, error) {
+	ret := &ClassResp{}
+	var err error
+
+	if cm == nil {
+		return ret, nil
 	}
 
-	val, ok := cm.idMap[key.GetID()]
+	if f == nil {
+		return ret, errors.New("invalid input")
+	}
+
+	val, ok := cm.idMap[f.GetID()]
 	if !ok {
 		return ret, ErrClassNotExist
 	}
-	return Tm.GetTeacherList(val.TeacherIDs)
+
+	ret.Class = *val
+	ret.Teachers, err = Tm.GetTeacherList(ret.TeacherIDs)
+	if err != nil {
+		return ret, err
+	}
+	return ret, nil
 }
