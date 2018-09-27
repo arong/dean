@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"github.com/astaxie/beego/logs"
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -24,25 +25,107 @@ func (ma *mysqlAgent) Init() {
 	}
 }
 
-func (ma *mysqlAgent) loadAllTeachers() ([]*Teacher, error) {
-	ret := []*Teacher{}
-	rows, err := ma.db.Query("SELECT iTeacherID,eGender,vName,vMobile FROM tbTeacher WHERE eStatus = 1;")
-	if err != nil {
-		return ret, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		tmp := &Teacher{}
-		err = rows.Scan(&tmp.ID, &tmp.Gender, &tmp.Name, &tmp.Mobile)
+// load data
+func (ma *mysqlAgent) LoadAllData() error {
+	// load all teachers
+	teacherMap := make(map[int64]*Teacher)
+	{
+		rows, err := ma.db.Query("SELECT iTeacherID,eGender,vName,vMobile FROM tbTeacher WHERE eStatus = 1;")
 		if err != nil {
-			continue
+			logs.Warn("query database failed", "err", err)
+			return err
 		}
-		ret = append(ret, tmp)
+		defer rows.Close()
+
+		for rows.Next() {
+			tmp := &Teacher{}
+			err = rows.Scan(&tmp.ID, &tmp.Gender, &tmp.Name, &tmp.Mobile)
+			if err != nil {
+				continue
+			}
+			teacherMap[tmp.ID] = tmp
+		}
 	}
-	return ret, nil
+
+	// init teacher manager
+	Tm.Init(teacherMap)
+
+	// load class
+	classMap := make(map[ClassID]*Class)
+	{
+		rows, err := ma.db.Query("SELECT iClassID,iGradeNumber,iClassNumber,vClassName FROM tbclass WHERE eStatus = 1;")
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			tmp := &Class{}
+			err = rows.Scan(&tmp.ID, &tmp.Grade, &tmp.Index, &tmp.Name)
+			if err != nil {
+				continue
+			}
+			classMap[tmp.ID] = tmp
+		}
+	}
+
+	logs.Info("total class count is %d", len(classMap))
+
+	// load class-teacher
+	{
+		rows, err := ma.db.Query("SELECT iClassID,iTeacherID FROM tbclassteacherrelation WHERE eStatus=1;")
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var classID ClassID
+			var teacherID int64
+			err = rows.Scan(&classID, &teacherID)
+			if err != nil {
+				continue
+			}
+			// 检查teacherID 是否存在
+			if _, ok := teacherMap[teacherID]; !ok {
+				logs.Trace("data broken", "teacherID", teacherID)
+				continue
+			}
+
+			// add to class map
+			if v, ok := classMap[classID]; ok {
+				v.TeacherIDs = append(v.TeacherIDs, teacherID)
+			}
+		}
+	}
+
+	// init class manager
+	Cm.Init(classMap)
+
+	logs.Info("load data success")
+	return nil
 }
 
+//func (ma *mysqlAgent) loadAllTeachers() ([]*Teacher, error) {
+//	ret := []*Teacher{}
+//	rows, err := ma.db.Query("SELECT iTeacherID,eGender,vName,vMobile FROM tbTeacher WHERE eStatus = 1;")
+//	if err != nil {
+//		return ret, err
+//	}
+//	defer rows.Close()
+//
+//	for rows.Next() {
+//		tmp := &Teacher{}
+//		err = rows.Scan(&tmp.ID, &tmp.Gender, &tmp.Name, &tmp.Mobile)
+//		if err != nil {
+//			continue
+//		}
+//		ret = append(ret, tmp)
+//	}
+//	return ret, nil
+//}
+
+// for teacher
 func (ma *mysqlAgent) InsertTeacher(t *Teacher) error {
 	// Prepare statement for inserting data
 	stmtIns, err := ma.db.Prepare("INSERT INTO `tbteacher` (`eGender`, `vName`, `vMobile`) VALUES (?,?,?);")
@@ -87,48 +170,50 @@ func (ma *mysqlAgent) DeleteTeacher(t *Teacher) error {
 	return nil
 }
 
-func (ma *mysqlAgent) loadAllClass() (map[ClassID]*Class, error) {
-	ret := make(map[ClassID]*Class)
-
-	{
-
-		rows, err := ma.db.Query("SELECT iClassID,iGradeNumber,iClassNumber,vClassName FROM tbclass WHERE eStatus = 1;")
-		if err != nil {
-			return ret, err
-		}
-		defer rows.Close()
-
-		for rows.Next() {
-			tmp := &Class{}
-			err = rows.Scan(&tmp.ID, &tmp.Grade, &tmp.Index, &tmp.Name)
-			if err != nil {
-				continue
-			}
-			ret[tmp.ID] = tmp
-			//ret = append(ret, tmp)
-		}
-	}
-
-	{
-
-		rows, err := ma.db.Query("SELECT iClassID,iTeacherID FROM tbclassteacherrelation WHERE eStatus=1;")
-		if err != nil {
-			return ret, err
-		}
-		defer rows.Close()
-
-		for rows.Next() {
-			var classID ClassID
-			var teacherID int64
-			err = rows.Scan(&classID, &teacherID)
-			if err != nil {
-				continue
-			}
-			if v, ok := ret[classID]; ok {
-				v.TeacherIDs = append(v.TeacherIDs, teacherID)
-			}
-		}
-	}
-
-	return ret, nil
-}
+// for class
+//func (ma *mysqlAgent) loadAllClass() (map[ClassID]*Class, error) {
+//	ret := make(map[ClassID]*Class)
+//
+//	{
+//		rows, err := ma.db.Query("SELECT iClassID,iGradeNumber,iClassNumber,vClassName FROM tbclass WHERE eStatus = 1;")
+//		if err != nil {
+//			return ret, err
+//		}
+//		defer rows.Close()
+//
+//		for rows.Next() {
+//			tmp := &Class{}
+//			err = rows.Scan(&tmp.ID, &tmp.Grade, &tmp.Index, &tmp.Name)
+//			if err != nil {
+//				continue
+//			}
+//			ret[tmp.ID] = tmp
+//		}
+//	}
+//	logs.Info("total class count is %d", len(ret))
+//
+//	// load class-teacher info
+//	{
+//		rows, err := ma.db.Query("SELECT iClassID,iTeacherID FROM tbclassteacherrelation WHERE eStatus=1;")
+//		if err != nil {
+//			return ret, err
+//		}
+//		defer rows.Close()
+//
+//		for rows.Next() {
+//			var classID ClassID
+//			var teacherID int64
+//			err = rows.Scan(&classID, &teacherID)
+//			if err != nil {
+//				continue
+//			}
+//			// 检查teacherID 是否存在
+//
+//			if v, ok := ret[classID]; ok {
+//				v.TeacherIDs = append(v.TeacherIDs, teacherID)
+//			}
+//		}
+//	}
+//
+//	return ret, nil
+//}

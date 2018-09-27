@@ -1,7 +1,7 @@
 // @APIVersion 1.0.0
-// @Title beego Test API
-// @Description beego has a very cool tools to autogenerate documents for your API
-// @Contact astaxie@gmail.com
+// @Title Aronic dean system for LFLSS
+// @Description Dean is designed for the managing dean issue in lflss
+// @Contact aronic@outlook.com
 // @TermsOfServiceUrl http://beego.me/
 // @License Apache 2.0
 // @LicenseUrl http://www.apache.org/licenses/LICENSE-2.0.html
@@ -9,12 +9,16 @@ package routers
 
 import (
 	"github.com/arong/dean/controllers"
-
 	"github.com/astaxie/beego"
 )
 
+const (
+	// fixedPath is the top directory for all the resource
+	fixedPath = "/v1/dean"
+)
+
 func init() {
-	ns := beego.NewNamespace("/v1/dean",
+	ns := beego.NewNamespace(fixedPath,
 		beego.NSNamespace("/user",
 			beego.NSInclude(
 				&controllers.UserController{},

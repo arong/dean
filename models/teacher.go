@@ -3,20 +3,32 @@ package models
 import (
 	"errors"
 	"fmt"
-	"sync"
+	"github.com/astaxie/beego/logs"
+	"os"
+)
+
+const (
+	eGenderMale    = 1
+	eGenderFemale  = 2
+	eGenderUnknown = 3
 )
 
 // a global handler
 var Tm TeacherManager
 
-//var db *sql.DB
-
 func init() {
-	// init global
+	// allocate memory
 	Ma.Init()
-	Tm.Init()
-	Cm.Init()
+	//Tm.Init()
+	//Cm.Init()
 	Vm.Init()
+
+	// data warm up
+	err := Ma.LoadAllData()
+	if err != nil {
+		logs.Error("init failed", "err", err)
+		os.Exit(-1)
+	}
 }
 
 type Teacher struct {
@@ -43,8 +55,6 @@ func (tl TeacherList) Less(i, j int) bool {
 type TeacherManager struct {
 	nameMap map[string]*Teacher // 名字索引
 	idMap   map[int64]*Teacher  // id索引表
-	nextID  int64
-	idMutex sync.Mutex
 }
 
 var (
@@ -53,31 +63,37 @@ var (
 	ErrNotExist     = errors.New("teacher not exist")
 )
 
-func (tm *TeacherManager) Init() {
-	tm.idMap = make(map[int64]*Teacher)
-	tm.nameMap = make(map[string]*Teacher)
-
-	all, err := Ma.loadAllTeachers()
-	if err != nil {
+func (tm *TeacherManager) Init(data map[int64]*Teacher) {
+	if tm == nil {
 		return
 	}
 
-	for _, v := range all {
-		tm.idMap[v.ID] = v
-		tm.nameMap[v.Name] = v
-		if tm.nextID < v.ID {
-			tm.nextID = v.ID
+	tm.nameMap = make(map[string]*Teacher)
+
+	if data == nil {
+		tm.idMap = make(map[int64]*Teacher)
+	} else {
+		tm.idMap = data
+		for _, v := range data {
+			tm.nameMap[v.Name] = v
 		}
 	}
 }
 
-func (tm *TeacherManager) getID() int64 {
-	tm.idMutex.Lock()
-	tm.nextID++
-	ret := tm.nextID
-	tm.idMutex.Unlock()
-	return ret
-}
+//func (tm *TeacherManager) setData(data map[int64]*Teacher) {
+//	if tm == nil || data == nil {
+//		return
+//	}
+//	tm.idMap = data
+//}
+
+//func (tm *TeacherManager) getID() int64 {
+//	tm.idMutex.Lock()
+//	tm.nextID++
+//	ret := tm.nextID
+//	tm.idMutex.Unlock()
+//	return ret
+//}
 
 func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 	if t.ID != 0 {
@@ -96,12 +112,9 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 		return ErrInvalidParam
 	}
 
-	if t.Gender <= 0 && t.Gender > 3 {
+	if t.Gender < eGenderMale && t.Gender > eGenderUnknown {
 		return ErrInvalidParam
 	}
-
-	// assign new id
-	//t.ID = tm.getID()
 
 	err := Ma.InsertTeacher(t)
 	if err != nil {

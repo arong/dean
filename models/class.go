@@ -6,6 +6,7 @@ import (
 
 // global manager
 var Cm ClassManager
+
 type ClassID int
 type Class struct {
 	Filter
@@ -17,11 +18,19 @@ type Class struct {
 type ClassList []*Class
 
 type Filter struct {
-	Grade      int     // 年级
-	Index      int     // 班级
+	Grade int // 年级
+	Index int // 班级
 }
+
+func (f *Filter) GetID() ClassID {
+	if f == nil {
+		return 0
+	}
+	return ClassID((f.Grade & 0xf0 << 8) | f.Index&0x0f)
+}
+
 type ClassManager struct {
-	idMap map[Filter]*Class
+	idMap map[ClassID]*Class
 }
 
 var (
@@ -29,8 +38,16 @@ var (
 )
 
 // maintain the relation between class and teacher
-func (cm *ClassManager) Init() {
-	cm.idMap = make(map[Filter]*Class)
+func (cm *ClassManager) Init(data map[ClassID]*Class) {
+	if cm == nil {
+		return
+	}
+
+	if data == nil {
+		cm.idMap = make(map[ClassID]*Class)
+	} else {
+		cm.idMap = data
+	}
 }
 
 func (cm *ClassManager) GetTeacherList(grade, index int) (TeacherList, error) {
@@ -40,10 +57,9 @@ func (cm *ClassManager) GetTeacherList(grade, index int) (TeacherList, error) {
 		Index: index,
 	}
 
-	val, ok := cm.idMap[key]
+	val, ok := cm.idMap[key.GetID()]
 	if !ok {
 		return ret, ErrClassNotExist
 	}
 	return Tm.GetTeacherList(val.TeacherIDs)
 }
-
