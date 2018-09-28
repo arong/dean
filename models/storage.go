@@ -27,6 +27,7 @@ func (ma *mysqlAgent) Init() {
 
 // load data
 func (ma *mysqlAgent) LoadAllData() error {
+	logs.Info("start loading data")
 	// load all teachers
 	teacherMap := make(map[int64]*Teacher)
 	{
@@ -63,6 +64,10 @@ func (ma *mysqlAgent) LoadAllData() error {
 			tmp := &Class{}
 			err = rows.Scan(&tmp.ID, &tmp.Grade, &tmp.Index, &tmp.Name)
 			if err != nil {
+				continue
+			}
+			if tmp.ID != tmp.GetID() {
+				logs.Warn("[LoadAllData] invalid id found", "id", tmp.ID, "expecting", tmp.GetID(), "grade", tmp.Grade, "index", tmp.Index)
 				continue
 			}
 			classMap[tmp.ID] = tmp

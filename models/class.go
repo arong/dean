@@ -36,7 +36,7 @@ func (f *Filter) GetID() ClassID {
 	if f == nil {
 		return 0
 	}
-	return ClassID((f.Grade & 0xf0 << 8) | f.Index&0x0f)
+	return ClassID(((f.Grade & 0xf) << 8) | f.Index&0x0f)
 }
 
 type ClassManager struct {

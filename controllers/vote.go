@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
+	"github.com/pkg/errors"
 )
 
 // Operations about object
@@ -19,9 +20,41 @@ type voteRequest struct {
 	Scores   []*models.VoteMeta
 }
 
-// @Title Create
+func (vr *voteRequest) Verify() error {
+	filter, err := models.Decode(vr.VoteCode)
+	if err != nil {
+		return err
+	}
+
+	classResp, err := models.Cm.GetInfo(&filter.Filter)
+	if err != nil {
+		return err
+	}
+
+	// check validity
+	currMap := make(map[int64]bool)
+	for _, v := range classResp.TeacherIDs {
+		currMap[v] = true
+	}
+
+	// check extra
+	for _, v := range vr.Scores {
+		if currMap[v.TeacherID] == false {
+			return errors.New("access denied")
+		}
+		delete(currMap, v.TeacherID)
+	}
+
+	// check lack
+	if len(currMap) > 0 {
+		return errors.New("all teacher must be voted")
+	}
+	return nil
+}
+
+// @Title Vote
 // @Description create object
-// @Param	body		body 	voteRequest	true		"The object content"
+// @Param	body		body 	voteRequest	true		"The vote info"
 // @Success 200 {string} 0
 // @Failure 403 body is empty
 // @router / [post]
@@ -29,9 +62,17 @@ func (v *VoteController) Post() {
 	request := voteRequest{}
 	resp := CommResp{Code: -1}
 
+	logs.Debug("[VoteController::Post]", "request", string(v.Ctx.Input.RequestBody))
 	err := json.Unmarshal(v.Ctx.Input.RequestBody, &request)
 	if err != nil {
 		resp.Msg = invalidJSON
+		goto Out
+	}
+
+	err = request.Verify()
+	if err != nil {
+		logs.Debug("[VoteController::Post] invalid request", "err", err)
+		resp.Msg = err.Error()
 		goto Out
 	}
 
@@ -40,6 +81,9 @@ func (v *VoteController) Post() {
 		resp.Msg = err.Error()
 		goto Out
 	}
+	resp.Code = 0
+	resp.Msg = msgSuccess
+	resp.Data = nil
 Out:
 	v.Data["json"] = resp
 	v.ServeJSON()
@@ -58,8 +102,9 @@ func (v *VoteController) Get() {
 
 	//logs.Debug(v.Ctx)
 	voteCode := v.Ctx.Input.Param(":voteCode")
-	name := v.GetString("voteCode")
+	name := v.GetString("foo")
 	logs.Debug("name", name)
+	logs.Debug("params", v.Ctx.Input.Params())
 	if voteCode == "" {
 		resp.Msg = invalidParam
 		logs.Debug("no vote code")
