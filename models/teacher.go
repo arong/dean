@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/astaxie/beego/logs"
 	"os"
+	"sync"
 )
 
 const (
@@ -18,8 +19,6 @@ var Tm TeacherManager
 func init() {
 	// allocate memory
 	Ma.Init()
-	//Tm.Init()
-	//Cm.Init()
 	Vm.Init()
 
 	// data warm up
@@ -54,6 +53,7 @@ func (tl TeacherList) Less(i, j int) bool {
 type TeacherManager struct {
 	nameMap map[string]*Teacher // 名字索引
 	idMap   map[int64]*Teacher  // id索引表
+	mutex   sync.Mutex          // 保护前两个数据表
 }
 
 var (
@@ -79,21 +79,6 @@ func (tm *TeacherManager) Init(data map[int64]*Teacher) {
 	}
 }
 
-//func (tm *TeacherManager) setData(data map[int64]*Teacher) {
-//	if tm == nil || data == nil {
-//		return
-//	}
-//	tm.idMap = data
-//}
-
-//func (tm *TeacherManager) getID() int64 {
-//	tm.idMutex.Lock()
-//	tm.nextID++
-//	ret := tm.nextID
-//	tm.idMutex.Unlock()
-//	return ret
-//}
-
 func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 	if t.ID != 0 {
 		return ErrInvalidParam
@@ -117,11 +102,18 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 
 	err := Ma.InsertTeacher(t)
 	if err != nil {
+		logs.Warn("[] database error")
 		return err
 	}
+
 	// add to map
-	tm.nameMap[t.Name] = t
-	tm.idMap[t.ID] = t
+	{
+		tm.mutex.Lock()
+		tm.nameMap[t.Name] = t
+		tm.idMap[t.ID] = t
+		tm.mutex.Unlock()
+	}
+
 	logs.Info("id=", t.ID)
 	return nil
 }
@@ -129,13 +121,24 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 func (tm *TeacherManager) DelTeacher(id int64) error {
 	val, ok := tm.idMap[id]
 	if !ok {
+		logs.Debug("[] not found")
 		return ErrNotExist
 	}
 
-	// remove from map
-	delete(tm.nameMap, val.Name)
-	delete(tm.idMap, val.ID)
+	// delete from database
+	err := Ma.DeleteTeacher(id)
+	if err != nil {
+		logs.Warn("[] database error")
+		return err
+	}
 
+	// remove from map
+	{
+		tm.mutex.Lock()
+		delete(tm.nameMap, val.Name)
+		delete(tm.idMap, val.ID)
+		tm.mutex.Unlock()
+	}
 	return nil
 }
 
@@ -167,4 +170,18 @@ func (tm *TeacherManager) GetAll() []*Teacher {
 		ret = append(ret, &tmp)
 	}
 	return ret
+}
+
+func (tm *TeacherManager) IsTeacherExist(id int64) bool {
+	_, ok := tm.idMap[id]
+	return ok
+}
+
+func (tm *TeacherManager) CheckTeachers(ids []int64) bool {
+	for _, v := range ids {
+		if _, ok := tm.idMap[v]; !ok {
+			return false
+		}
+	}
+	return true
 }

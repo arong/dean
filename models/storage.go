@@ -111,25 +111,6 @@ func (ma *mysqlAgent) LoadAllData() error {
 	return nil
 }
 
-//func (ma *mysqlAgent) loadAllTeachers() ([]*Teacher, error) {
-//	ret := []*Teacher{}
-//	rows, err := ma.db.Query("SELECT iTeacherID,eGender,vName,vMobile FROM tbTeacher WHERE eStatus = 1;")
-//	if err != nil {
-//		return ret, err
-//	}
-//	defer rows.Close()
-//
-//	for rows.Next() {
-//		tmp := &Teacher{}
-//		err = rows.Scan(&tmp.ID, &tmp.Gender, &tmp.Name, &tmp.Mobile)
-//		if err != nil {
-//			continue
-//		}
-//		ret = append(ret, tmp)
-//	}
-//	return ret, nil
-//}
-
 // for teacher
 func (ma *mysqlAgent) InsertTeacher(t *Teacher) error {
 	// Prepare statement for inserting data
@@ -139,7 +120,7 @@ func (ma *mysqlAgent) InsertTeacher(t *Teacher) error {
 	}
 	defer stmtIns.Close()
 
-	resp, err := stmtIns.Exec(t.ID, t.Gender, t.Name, t.Mobile)
+	resp, err := stmtIns.Exec(t.Gender, t.Name, t.Mobile)
 	if err != nil {
 		return err
 	}
@@ -161,64 +142,115 @@ func (ma *mysqlAgent) UpdateTeacher(t *Teacher) error {
 	return nil
 }
 
-func (ma *mysqlAgent) DeleteTeacher(t *Teacher) error {
+func (ma *mysqlAgent) DeleteTeacher(teacherID int64) error {
 	stmtIns, err := ma.db.Prepare("UPDATE tbteacher set eStatus=? WHERE iTeacherID=?;")
 	if err != nil {
 		return err
 	}
 	defer stmtIns.Close()
 
-	_, err = stmtIns.Exec(eStatusDeleted, t.ID)
+	_, err = stmtIns.Exec(eStatusDeleted, teacherID)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-// for class
-//func (ma *mysqlAgent) loadAllClass() (map[ClassID]*Class, error) {
-//	ret := make(map[ClassID]*Class)
-//
-//	{
-//		rows, err := ma.db.Query("SELECT iClassID,iGradeNumber,iClassNumber,vClassName FROM tbclass WHERE eStatus = 1;")
-//		if err != nil {
-//			return ret, err
-//		}
-//		defer rows.Close()
-//
-//		for rows.Next() {
-//			tmp := &Class{}
-//			err = rows.Scan(&tmp.ID, &tmp.Grade, &tmp.Index, &tmp.Name)
-//			if err != nil {
-//				continue
-//			}
-//			ret[tmp.ID] = tmp
-//		}
-//	}
-//	logs.Info("total class count is %d", len(ret))
-//
-//	// load class-teacher info
-//	{
-//		rows, err := ma.db.Query("SELECT iClassID,iTeacherID FROM tbclassteacherrelation WHERE eStatus=1;")
-//		if err != nil {
-//			return ret, err
-//		}
-//		defer rows.Close()
-//
-//		for rows.Next() {
-//			var classID ClassID
-//			var teacherID int64
-//			err = rows.Scan(&classID, &teacherID)
-//			if err != nil {
-//				continue
-//			}
-//			// 检查teacherID 是否存在
-//
-//			if v, ok := ret[classID]; ok {
-//				v.TeacherIDs = append(v.TeacherIDs, teacherID)
-//			}
-//		}
-//	}
-//
-//	return ret, nil
-//}
+// class
+// 增删改查
+func (ma *mysqlAgent) InsertClass(t *Class) error {
+	// Prepare statement for inserting data
+	stmtIns, err := ma.db.Prepare("INSERT INTO `tbClass` (`iClassID`, `iGrade`, `iIndex`, `vName`) VALUES (?,?,?,?);")
+	if err != nil {
+		return err
+	}
+	defer stmtIns.Close()
+
+	_, err = stmtIns.Exec(t.ID, t.Grade, t.Index, t.Name)
+	if err != nil {
+		logs.Warn("execute sql failed", "err", err)
+		return err
+	}
+	return nil
+}
+
+func (ma *mysqlAgent) UpdateClass(t *Class) error {
+	stmtIns, err := ma.db.Prepare("UPDATE tbClass SET vName=? WHERE iClassID=?;")
+	if err != nil {
+		return err
+	}
+	defer stmtIns.Close()
+
+	_, err = stmtIns.Exec(t.Name, t.ID)
+	if err != nil {
+		logs.Warn("execute sql failed", "err", err)
+		return err
+	}
+	return nil
+}
+
+func (ma *mysqlAgent) DeleteClass(id ClassID) error {
+	stmtIns, err := ma.db.Prepare("UPDATE tbClass set eStatus=? WHERE iClassID=?;")
+	if err != nil {
+		return err
+	}
+	defer stmtIns.Close()
+
+	_, err = stmtIns.Exec(eStatusDeleted, id)
+	if err != nil {
+		logs.Warn("execute sql failed", "err", err)
+		return err
+	}
+	return nil
+}
+
+// teacher-class relation
+func (ma *mysqlAgent) AttachTeacher(id ClassID, teacherID []int64) error {
+	if ma == nil {
+		return nil
+	}
+
+	if id == 0 || len(teacherID) == 0 {
+		return ErrInvalidParam
+	}
+
+	stmtIns, err := ma.db.Prepare("INSERT INTO `tbClassTeacherRelation` (`iClassID`, `iTeacherID`) VALUES (?,?);")
+	if err != nil {
+		return err
+	}
+	defer stmtIns.Close()
+
+	for _, v := range teacherID {
+		_, err = stmtIns.Exec(id, v)
+		if err != nil {
+			logs.Warn("execute sql failed", "err", err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (ma *mysqlAgent) DetachTeacher(id ClassID, teacherID []int64) error {
+	if ma == nil {
+		return nil
+	}
+
+	if id == 0 || len(teacherID) == 0 {
+		return ErrInvalidParam
+	}
+
+	stmtIns, err := ma.db.Prepare("UPDATE tbClassTeacherRelation set eStatus=? WHERE iClassID=? AND iTeacherID=?;")
+	if err != nil {
+		return err
+	}
+	defer stmtIns.Close()
+
+	for _, v := range teacherID {
+		_, err = stmtIns.Exec(id, v)
+		if err != nil {
+			logs.Warn("execute sql failed", "err", err)
+			return err
+		}
+	}
+	return nil
+}

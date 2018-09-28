@@ -50,8 +50,8 @@ func (c *ClassController) Get() {
 	var data *models.ClassResp
 	var err error
 
-	request.Grade,_ = strconv.Atoi(c.GetString(":grade"))
-	request.Index,err = strconv.Atoi(c.GetString(":index"))
+	request.Grade, _ = strconv.Atoi(c.GetString(":grade"))
+	request.Index, err = strconv.Atoi(c.GetString(":index"))
 	if err != nil {
 		resp.Msg = invalidJSON
 		goto Out
