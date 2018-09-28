@@ -46,10 +46,9 @@ Out:
 }
 
 // @Title Get
-// @Description find object by objectid
-// @Param	objectId		path 	string	true		"the objectid you want to get"
+// @Description find object by voteCode
+// @Param	voteCode		path	string	true		"the voteCode to verify access"
 // @Success 200 {object} models.ScoreInfo
-// @Failure 403 :objectId is empty
 // @router /:voteCode [get]
 func (v *VoteController) Get() {
 	resp := CommResp{Code: -1}
@@ -57,15 +56,20 @@ func (v *VoteController) Get() {
 	var filter *models.VoteCodeInfo
 	var data *models.ClassResp
 
+	//logs.Debug(v.Ctx)
 	voteCode := v.Ctx.Input.Param(":voteCode")
+	name := v.GetString("voteCode")
+	logs.Debug("name", name)
 	if voteCode == "" {
 		resp.Msg = invalidParam
+		logs.Debug("no vote code")
 		goto Out
 	}
 
 	filter, err = models.Decode(voteCode)
 	if err != nil {
 		resp.Msg = "invalid vote code"
+		logs.Debug("invalid vote code")
 		goto Out
 	}
 
@@ -92,6 +96,7 @@ Out:
 func (v *VoteController) GetAll() {
 	resp := &CommResp{}
 	resp.Msg = msgSuccess
+	fmt.Println("fuck ")
 	obs := models.Vm.GetAll()
 	resp.Data = obs
 	v.Data["json"] = resp

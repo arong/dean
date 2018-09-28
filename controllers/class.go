@@ -27,11 +27,11 @@ func (o *ClassController) Post() {
 		goto Out
 	}
 
-	err = models.Tm.AddTeacher(&request)
-	if err != nil {
-		resp.Msg = err.Error()
-		goto Out
-	}
+	//err = models.Tm.AddTeacher(&request)
+	//if err != nil {
+	//	resp.Msg = err.Error()
+	//	goto Out
+	//}
 	resp.Code = 0
 	resp.Msg = msgSuccess
 	resp.Data = nil
