@@ -27,7 +27,7 @@ type DBConfig struct {
 	DBName   string `yaml:"DBName"`
 }
 
-func (c *DBConfig) GetConf(path string) error {
+func (c *DBConfig) GetConf() error {
 	c.User = beego.AppConfig.String("user")
 	c.Password = beego.AppConfig.String("password")
 	c.Host = beego.AppConfig.String("host")

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"github.com/arong/dean/models"
 	_ "github.com/arong/dean/routers"
 	"github.com/astaxie/beego"
@@ -12,19 +11,16 @@ import (
 var confPath string
 
 func main() {
-	flag.StringVar(&confPath, "c", "server.conf", "set configuration `file`")
-	if confPath == "" {
-		logs.Warn("Please specify a config file")
-		return
-	}
 	conf := models.DBConfig{}
-	err := conf.GetConf(confPath)
+	err := conf.GetConf()
 	if err != nil {
 		logs.Warn("[main] GetConf failed ", err)
 		return
 	}
 
 	models.Init(&conf)
+
+	logs.SetLogger(logs.AdapterFile,`{"filename":"dean.log","level":7,"maxlines":0,"maxsize":0,"daily":true,"maxdays":10}`)
 
 	logs.Info("server start...")
 	if beego.BConfig.RunMode == "dev" {
