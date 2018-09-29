@@ -25,12 +25,12 @@ func (s *ScoreController) Get() {
 	ret := &models.ScoreInfo{}
 	teacherID := s.Ctx.Input.Param(":teacherID")
 	if teacherID == "" {
-		resp.Msg = invalidParam
+		resp.Msg = msgInvalidParam
 		goto Out
 	}
 	id, err = strconv.ParseInt(teacherID, 10, 64)
 	if err != nil {
-		resp.Msg = invalidParam
+		resp.Msg = msgInvalidParam
 		goto Out
 	}
 	fmt.Println("teacherID=", id)

@@ -21,7 +21,7 @@ func (cm *CommResp) String() string {
 }
 
 var (
-	invalidJSON  = "invalid JSON"
-	invalidParam = "invalid parameter"
-	msgSuccess   = "success"
+	msgInvalidJSON  = "invalid JSON"
+	msgInvalidParam = "invalid parameter"
+	msgSuccess      = "success"
 )

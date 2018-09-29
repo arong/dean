@@ -14,11 +14,11 @@ import (
 
 const (
 	// fixedPath is the top directory for all the resource
-	fixedPath = "/v1/dean"
+	fixedPath = "/api/v1/dean"
 )
 
 func init() {
-	ns := beego.NewNamespace("/v1/dean",
+	ns := beego.NewNamespace("/api/v1/dean",
 		beego.NSNamespace("/class",
 			beego.NSInclude(
 				&controllers.ClassController{},

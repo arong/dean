@@ -5,6 +5,7 @@ import (
 	"github.com/astaxie/beego/logs"
 	"os"
 	"sync"
+	"sort"
 )
 
 const (
@@ -43,7 +44,7 @@ func (tl TeacherList) Len() int {
 }
 
 func (tl TeacherList) Swap(i, j int) {
-	tl[i], tl[j] = tl[i], tl[j]
+	tl[i], tl[j] = tl[j], tl[i]
 }
 
 func (tl TeacherList) Less(i, j int) bool {
@@ -119,65 +120,79 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 }
 
 func (tm *TeacherManager) DelTeacher(id int64) error {
+	tm.mutex.Lock()
+	tm.mutex.Unlock()
+
 	val, ok := tm.idMap[id]
 	if !ok {
-		logs.Debug("[] not found")
+		logs.Debug("[TeacherManager::DelTeacher] not found", "id", id)
 		return ErrNotExist
 	}
+
 
 	// delete from database
 	err := Ma.DeleteTeacher(id)
 	if err != nil {
-		logs.Warn("[] database error")
+		logs.Warn("[TeacherManager::DelTeacher] database error")
 		return err
 	}
 
 	// remove from map
-	{
-		tm.mutex.Lock()
-		delete(tm.nameMap, val.Name)
-		delete(tm.idMap, val.ID)
-		tm.mutex.Unlock()
-	}
+	delete(tm.nameMap, val.Name)
+	delete(tm.idMap, val.ID)
+
 	return nil
 }
 
 func (tm *TeacherManager) GetTeacherInfo(id int64) (*Teacher, error) {
 	ret := &Teacher{}
 	err := ErrNotExist
+	tm.mutex.Lock()
 	if val, ok := tm.idMap[id]; ok {
 		*ret = *val
 		err = nil
 	}
+	tm.mutex.Unlock()
 	return ret, err
 }
 
-func (tm *TeacherManager) GetTeacherList(ids []int64) ([]*Teacher, error) {
-	ret := []*Teacher{}
+func (tm *TeacherManager) GetTeacherList(ids []int64) (TeacherList, error) {
+	ret := TeacherList{}
+	tm.mutex.Lock()
 	for _, v := range ids {
 		if val, ok := tm.idMap[v]; ok {
 			tmp := *val
 			ret = append(ret, &tmp)
 		}
 	}
+	tm.mutex.Unlock()
+	//sort.Sort(ret)
 	return ret, nil
 }
 
-func (tm *TeacherManager) GetAll() []*Teacher {
-	ret := []*Teacher{}
+func (tm *TeacherManager) GetAll() TeacherList {
+	ret := TeacherList{}
+	tm.mutex.Lock()
 	for _, v := range tm.idMap {
 		tmp := *v
 		ret = append(ret, &tmp)
 	}
+	tm.mutex.Unlock()
+	sort.Sort(ret)
 	return ret
 }
 
 func (tm *TeacherManager) IsTeacherExist(id int64) bool {
+	tm.mutex.Lock()
 	_, ok := tm.idMap[id]
+	tm.mutex.Unlock()
 	return ok
 }
 
 func (tm *TeacherManager) CheckTeachers(ids []int64) bool {
+	tm.mutex.Lock()
+	defer tm.mutex.Unlock()
+
 	for _, v := range ids {
 		if _, ok := tm.idMap[v]; !ok {
 			return false

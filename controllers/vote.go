@@ -65,7 +65,7 @@ func (v *VoteController) Post() {
 	logs.Debug("[VoteController::Post]", "request", string(v.Ctx.Input.RequestBody))
 	err := json.Unmarshal(v.Ctx.Input.RequestBody, &request)
 	if err != nil {
-		resp.Msg = invalidJSON
+		resp.Msg = msgInvalidJSON
 		goto Out
 	}
 
@@ -106,7 +106,7 @@ func (v *VoteController) Get() {
 	logs.Debug("name", name)
 	logs.Debug("params", v.Ctx.Input.Params())
 	if voteCode == "" {
-		resp.Msg = invalidParam
+		resp.Msg = msgInvalidParam
 		logs.Debug("no vote code")
 		goto Out
 	}

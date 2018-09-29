@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/arong/dean/models"
 	"github.com/astaxie/beego"
+	"github.com/astaxie/beego/logs"
 	"strconv"
 )
 
@@ -23,7 +24,7 @@ func (o *TeacherController) Post() {
 
 	err := json.Unmarshal(o.Ctx.Input.RequestBody, &request)
 	if err != nil {
-		resp.Msg = invalidJSON
+		resp.Msg = msgInvalidJSON
 		goto Out
 	}
 
@@ -54,13 +55,13 @@ func (o *TeacherController) Get() {
 
 	teacherID := o.Ctx.Input.Param(":teacherID")
 	if teacherID == "" {
-		resp.Msg = invalidParam
+		resp.Msg = msgInvalidParam
 		goto Out
 	}
 
 	id, err = strconv.ParseInt(teacherID, 10, 64)
 	if err != nil {
-		resp.Msg = invalidParam
+		resp.Msg = msgInvalidParam
 		goto Out
 	}
 
@@ -103,8 +104,14 @@ func (tc *TeacherController) Delete() {
 	id, err := strconv.ParseInt(uid, 10, 64)
 	err = models.Tm.DelTeacher(id)
 	if err != nil {
-		return
+		logs.Debug("[TeacherController::Delete] failed", "err", err)
+		resp.Msg = err.Error()
+		goto Out
 	}
+
+	resp.Code = 0
+	resp.Msg = msgSuccess
+Out:
 	tc.Data["json"] = resp
 	tc.ServeJSON()
 }
