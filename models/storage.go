@@ -3,10 +3,9 @@ package models
 import (
 	"database/sql"
 	"fmt"
+	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 	_ "github.com/go-sql-driver/mysql"
-	"gopkg.in/yaml.v2"
-	"io/ioutil"
 )
 
 var Ma mysqlAgent
@@ -29,17 +28,12 @@ type DBConfig struct {
 }
 
 func (c *DBConfig) GetConf(path string) error {
-	yamlFile, err := ioutil.ReadFile(path)
-	if err != nil {
-		logs.Warn("yamlFile.Get err   #%v ", err)
-		return err
-	}
+	c.User = beego.AppConfig.String("user")
+	c.Password = beego.AppConfig.String("password")
+	c.Host = beego.AppConfig.String("host")
+	c.Port, _ = beego.AppConfig.Int("port")
+	c.DBName = beego.AppConfig.String("dbName")
 
-	err = yaml.Unmarshal(yamlFile, c)
-	if err != nil {
-		logs.Error("Unmarshal: %v", err)
-		return err
-	}
 	logs.Debug(*c)
 	return nil
 }

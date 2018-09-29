@@ -10,6 +10,7 @@ import (
 )
 
 var confPath string
+
 func main() {
 	flag.StringVar(&confPath, "c", "server.conf", "set configuration `file`")
 	if confPath == "" {
