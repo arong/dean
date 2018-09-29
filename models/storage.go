@@ -2,8 +2,11 @@ package models
 
 import (
 	"database/sql"
+	"fmt"
 	"github.com/astaxie/beego/logs"
 	_ "github.com/go-sql-driver/mysql"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 )
 
 var Ma mysqlAgent
@@ -17,9 +20,36 @@ type mysqlAgent struct {
 	db *sql.DB
 }
 
-func (ma *mysqlAgent) Init() {
+type DBConfig struct {
+	User     string `yaml:"user"`
+	Password string `yaml:"password"`
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	DBName   string `yaml:"DBName"`
+}
+
+func (c *DBConfig) GetConf(path string) error {
+	yamlFile, err := ioutil.ReadFile(path)
+	if err != nil {
+		logs.Warn("yamlFile.Get err   #%v ", err)
+		return err
+	}
+
+	err = yaml.Unmarshal(yamlFile, c)
+	if err != nil {
+		logs.Error("Unmarshal: %v", err)
+		return err
+	}
+	logs.Debug(*c)
+	return nil
+}
+
+func (ma *mysqlAgent) Init(conf *DBConfig) {
 	var err error
-	ma.db, err = sql.Open("mysql", "root:123456@tcp(localhost:3306)/lflss?charset=utf8")
+	// "root:123456@tcp(localhost:3306)/lflss?charset=utf8"
+	path := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8", conf.User, conf.Password, conf.Host, conf.Port, conf.DBName)
+	logs.Debug(path)
+	ma.db, err = sql.Open("mysql", path)
 	if err != nil {
 		panic("cannot connect to mysql")
 	}
@@ -54,7 +84,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 	// load class
 	classMap := make(map[ClassID]*Class)
 	{
-		rows, err := ma.db.Query("SELECT iClassID,iGradeNumber,iClassNumber,vClassName FROM tbclass WHERE eStatus = 1;")
+		rows, err := ma.db.Query("SELECT iClassID,iGrade,iIndex,vClassName FROM tbclass WHERE eStatus = 1;")
 		if err != nil {
 			return err
 		}

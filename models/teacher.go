@@ -4,8 +4,8 @@ import (
 	"errors"
 	"github.com/astaxie/beego/logs"
 	"os"
-	"sync"
 	"sort"
+	"sync"
 )
 
 const (
@@ -17,9 +17,9 @@ const (
 // a global handler
 var Tm TeacherManager
 
-func init() {
+func Init(conf *DBConfig) {
 	// allocate memory
-	Ma.Init()
+	Ma.Init(conf)
 	Vm.Init()
 
 	// data warm up
@@ -128,7 +128,6 @@ func (tm *TeacherManager) DelTeacher(id int64) error {
 		logs.Debug("[TeacherManager::DelTeacher] not found", "id", id)
 		return ErrNotExist
 	}
-
 
 	// delete from database
 	err := Ma.DeleteTeacher(id)

@@ -23,11 +23,13 @@ type voteRequest struct {
 func (vr *voteRequest) Verify() error {
 	filter, err := models.Decode(vr.VoteCode)
 	if err != nil {
+		logs.Warn("[voteRequest::Verify] Decode failed")
 		return err
 	}
 
 	classResp, err := models.Cm.GetInfo(&filter.Filter)
 	if err != nil {
+		logs.Debug("[voteRequest::Verify] class not found")
 		return err
 	}
 
@@ -66,6 +68,7 @@ func (v *VoteController) Post() {
 	err := json.Unmarshal(v.Ctx.Input.RequestBody, &request)
 	if err != nil {
 		resp.Msg = msgInvalidJSON
+		logs.Trace("[VoteController::Post] invalid request format")
 		goto Out
 	}
 

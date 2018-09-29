@@ -18,7 +18,7 @@ const (
 )
 
 func init() {
-	ns := beego.NewNamespace("/api/v1/dean",
+	ns := beego.NewNamespace(fixedPath,
 		beego.NSNamespace("/class",
 			beego.NSInclude(
 				&controllers.ClassController{},
