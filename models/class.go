@@ -30,7 +30,7 @@ type Class struct {
 	Filter
 	ID         ClassID `json:"id"`
 	Name       string  `json:"name"`
-	TeacherIDs []int64 `json:"-"` // id
+	TeacherIDs []UserID `json:"-"` // id
 }
 
 type ClassResp struct {
@@ -140,12 +140,12 @@ func (cm *ClassManager) ModifyClass(c *Class) error {
 	}
 
 	// 检查教师是否有增减
-	currMap := make(map[int64]bool)
+	currMap := make(map[UserID]bool)
 	for _, v := range curr.TeacherIDs {
 		currMap[v] = true
 	}
 
-	newMap := make(map[int64]bool)
+	newMap := make(map[UserID]bool)
 	for _, v := range c.TeacherIDs {
 		if _, ok := currMap[v]; ok {
 			delete(currMap, v)
@@ -155,7 +155,7 @@ func (cm *ClassManager) ModifyClass(c *Class) error {
 	}
 
 	if len(currMap) > 0 {
-		addList := make([]int64, len(newMap))
+		addList := make([]UserID, len(newMap))
 		for k, _ := range newMap {
 			addList = append(addList, k)
 		}
@@ -168,7 +168,7 @@ func (cm *ClassManager) ModifyClass(c *Class) error {
 	}
 
 	if len(currMap) > 0 {
-		removeList := make([]int64, len(currMap))
+		removeList := make([]UserID, len(currMap))
 		for k, _ := range currMap {
 			removeList = append(removeList, k)
 		}

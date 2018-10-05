@@ -39,6 +39,11 @@ func init() {
 				&controllers.ScoreController{},
 			),
 		),
+		beego.NSNamespace("/user",
+			beego.NSInclude(
+				&controllers.UserController{},
+			),
+		),
 	)
 	beego.AddNamespace(ns)
 }

@@ -5,12 +5,12 @@ var Vm voteManager
 
 type voteManager struct {
 	// teacherID -> votes
-	votes map[int64]*ScoreInfo
+	votes map[UserID]*ScoreInfo
 }
 
 type VoteMeta struct {
-	TeacherID int64 // 教师ID
-	Score     int   // 评分
+	TeacherID UserID // 教师ID
+	Score     int    // 评分
 }
 
 type ScoreInfo struct {
@@ -19,9 +19,10 @@ type ScoreInfo struct {
 }
 
 func (vm *voteManager) Init() {
-	vm.votes = make(map[int64]*ScoreInfo)
+	vm.votes = make(map[UserID]*ScoreInfo)
 }
 
+// AddScore calculate the score of a teacher
 func (s *ScoreInfo) AddScore(score int) {
 	s.votes = append(s.votes, score)
 	total := 0.0
@@ -46,7 +47,7 @@ func (vm *voteManager) CastVote(votes []*VoteMeta) error {
 	return nil
 }
 
-func (vm *voteManager) GetScore(teacherID int64) (*ScoreInfo, error) {
+func (vm *voteManager) GetScore(teacherID UserID) (*ScoreInfo, error) {
 	ret := &ScoreInfo{}
 	if val, ok := vm.votes[teacherID]; ok {
 		*ret = *val

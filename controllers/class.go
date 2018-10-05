@@ -2,14 +2,15 @@ package controllers
 
 import (
 	"encoding/json"
+	"sort"
+	"strconv"
+
 	"github.com/arong/dean/models"
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
-	"sort"
-	"strconv"
 )
 
-// Operations about object
+// ClassController manage class
 type ClassController struct {
 	beego.Controller
 }
@@ -149,7 +150,7 @@ func (c *ClassController) GetAll() {
 	tmp := models.Cm.GetAll()
 	sort.Sort(tmp)
 
-	resp.Data = CommList{RecordCount:len(tmp), RecordList:tmp}
+	resp.Data = CommList{RecordCount: len(tmp), RecordList: tmp}
 	c.Data["json"] = resp
 	c.ServeJSON()
 }

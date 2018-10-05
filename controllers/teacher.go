@@ -65,7 +65,7 @@ func (o *TeacherController) Get() {
 		goto Out
 	}
 
-	ret, err = models.Tm.GetTeacherInfo(id)
+	ret, err = models.Tm.GetTeacherInfo(models.UserID(id))
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out
@@ -102,7 +102,7 @@ func (tc *TeacherController) Delete() {
 	resp := &CommResp{Code: -1}
 	uid := tc.GetString(":teacherID")
 	id, err := strconv.ParseInt(uid, 10, 64)
-	err = models.Tm.DelTeacher(id)
+	err = models.Tm.DelTeacher(models.UserID(id))
 	if err != nil {
 		logs.Debug("[TeacherController::Delete] failed", "err", err)
 		resp.Msg = err.Error()

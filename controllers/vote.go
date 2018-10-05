@@ -34,7 +34,7 @@ func (vr *voteRequest) Verify() error {
 	}
 
 	// check validity
-	currMap := make(map[int64]bool)
+	currMap := make(map[models.UserID]bool)
 	for _, v := range classResp.TeacherIDs {
 		currMap[v] = true
 	}

@@ -3,6 +3,8 @@ package controllers
 import (
 	"encoding/json"
 	"github.com/arong/dean/models"
+	"github.com/astaxie/beego/logs"
+	"strconv"
 
 	"github.com/astaxie/beego"
 )
@@ -19,20 +21,48 @@ type UserController struct {
 // @Failure 403 body is empty
 // @router / [post]
 func (u *UserController) Post() {
+	var id models.UserID
 	var user models.User
-	json.Unmarshal(u.Ctx.Input.RequestBody, &user)
-	uid := models.AddUser(user)
-	u.Data["json"] = map[string]string{"uid": uid}
+	resp := CommResp{Code: -1}
+
+	err := json.Unmarshal(u.Ctx.Input.RequestBody, &user)
+	if err != nil {
+		logs.Debug("[UserController::Post] invalid json")
+		resp.Msg = msgInvalidJSON
+		goto Out
+	}
+
+	id, err = models.Um.AddUser(&user)
+	if err != nil {
+		resp.Msg = err.Error()
+		logs.Info("[UserController::Post] AddUser failed")
+		goto Out
+	}
+
+	resp.Code = 0
+	resp.Msg = msgSuccess
+	resp.Data = id
+Out:
+	u.Data["json"] = resp
 	u.ServeJSON()
 }
 
 // @Title GetAll
 // @Description get all Users
+// @Param	grade		query 	string	true		"The grade of class"
+// @Param	index		query 	string	true		"The number of class"
 // @Success 200 {object} models.User
 // @router / [get]
 func (u *UserController) GetAll() {
-	users := models.GetAllUsers()
-	u.Data["json"] = users
+	filter := models.Filter{}
+	filter.Grade, _ = strconv.Atoi(u.GetString("grade"))
+	filter.Index, _ = strconv.Atoi(u.GetString("index"))
+
+	u.Data["json"] = CommResp{
+		Code: 0,
+		Msg:  msgSuccess,
+		Data: models.Um.GetAllUsers(&filter),
+	}
 	u.ServeJSON()
 }
 
@@ -43,15 +73,24 @@ func (u *UserController) GetAll() {
 // @Failure 403 :uid is empty
 // @router /:uid [get]
 func (u *UserController) Get() {
-	uid := u.GetString(":uid")
-	if uid != "" {
-		user, err := models.GetUser(uid)
-		if err != nil {
-			u.Data["json"] = err.Error()
-		} else {
-			u.Data["json"] = user
-		}
+	resp := &CommResp{Code: -1}
+	tmp := u.GetString(":uid")
+	uid, err := strconv.ParseInt(tmp, 10, 64)
+	if err != nil {
+		logs.Info("invalid user id")
+		goto Out
 	}
+
+	resp.Data, err = models.Um.GetUser(models.UserID(uid))
+	if err != nil {
+		resp.Msg = err.Error()
+		logs.Debug("getUserID failed")
+		goto Out
+	}
+	resp.Code = 0
+	resp.Msg = msgSuccess
+Out:
+	u.Data["json"] = resp
 	u.ServeJSON()
 }
 
@@ -63,17 +102,36 @@ func (u *UserController) Get() {
 // @Failure 403 :uid is not int
 // @router /:uid [put]
 func (u *UserController) Put() {
-	uid := u.GetString(":uid")
-	if uid != "" {
-		var user models.User
-		json.Unmarshal(u.Ctx.Input.RequestBody, &user)
-		uu, err := models.UpdateUser(uid, &user)
-		if err != nil {
-			u.Data["json"] = err.Error()
-		} else {
-			u.Data["json"] = uu
-		}
+	resp := &CommResp{Code: -1}
+	tmp := u.GetString(":uid")
+	var user models.User
+	uid, err := strconv.ParseInt(tmp, 10, 64)
+	if err != nil {
+		logs.Debug("[] parse uid failed")
+		goto Out
 	}
+
+	if uid == 0 {
+		logs.Debug("invalid uid")
+		goto Out
+	}
+
+	err = json.Unmarshal(u.Ctx.Input.RequestBody, &user)
+	if err != nil {
+		resp.Msg = msgInvalidJSON
+		goto Out
+	}
+
+	err = models.Um.ModUser(&user)
+	if err != nil {
+		resp.Msg = err.Error()
+		goto Out
+	}
+
+	resp.Code = 0
+	resp.Msg = msgSuccess
+Out:
+	u.Data["json"] = resp
 	u.ServeJSON()
 }
 
@@ -84,9 +142,23 @@ func (u *UserController) Put() {
 // @Failure 403 uid is empty
 // @router /:uid [delete]
 func (u *UserController) Delete() {
-	uid := u.GetString(":uid")
-	models.DeleteUser(uid)
-	u.Data["json"] = "delete success!"
+	resp := CommResp{Code: -1}
+	tmp := u.GetString(":uid")
+	uid, err := strconv.ParseInt(tmp, 10, 64)
+	if err != nil {
+		logs.Debug("[UserController::Delete] invalid uid")
+		goto Out
+	}
+	err = models.Um.DelUser(models.UserID(uid))
+	if err != nil {
+		logs.Debug("[UserController::Delete] failed", err)
+		resp.Msg = err.Error()
+		goto Out
+	}
+	resp.Code = 0
+	resp.Msg = msgSuccess
+Out:
+	u.Data["json"] = resp
 	u.ServeJSON()
 }
 
@@ -98,21 +170,61 @@ func (u *UserController) Delete() {
 // @Failure 403 user not exist
 // @router /login [get]
 func (u *UserController) Login() {
+	resp := &CommResp{Code: -1}
 	username := u.GetString("username")
 	password := u.GetString("password")
-	if models.Login(username, password) {
-		u.Data["json"] = "login success"
-	} else {
-		u.Data["json"] = "user not exist"
+
+	token, err := models.Ac.Login(username, password)
+	if err != nil {
+		logs.Debug("[] login failed")
+		resp.Msg = err.Error()
+		goto Out
 	}
+	resp.Code = 0
+	resp.Msg = msgSuccess
+	resp.Data = token
+Out:
+	u.Data["json"] = resp
 	u.ServeJSON()
 }
 
+
 // @Title logout
 // @Description Logs out current logged in user session
+// @Param	token		query 	string	true		"The username for login"
 // @Success 200 {string} logout success
 // @router /logout [get]
 func (u *UserController) Logout() {
-	u.Data["json"] = "logout success"
+	resp := &CommResp{Code: -1}
+	token := u.GetString("username")
+	if token == "" {
+		logs.Debug("no token")
+		resp.Msg = "invalid token"
+		goto Out
+	}
+
+	if models.Ac.Logout(token) != nil {
+		logs.Debug("logout failed")
+		goto Out
+	}
+	resp.Code = 0
+	resp.Msg = msgSuccess
+
+Out:
+	u.Data["json"] = resp
 	u.ServeJSON()
 }
+
+// @Title resetPassword
+// @Description reset password of current user
+// @Param	token		query 	string	true		"The username for login"
+// @Success 200 {string} logout success
+// @router /password [post]
+func (u *UserController) ResetPassword() {
+	resp := &CommResp{Code: -1}
+	resp.Code = 0
+	resp.Msg = msgSuccess
+	u.Data["json"] = resp
+	u.ServeJSON()
+}
+

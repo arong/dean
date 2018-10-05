@@ -31,10 +31,8 @@ func Init(conf *DBConfig) {
 }
 
 type Teacher struct {
-	ID     int64
-	Gender int    // 1: Male, 2: Female, 3: unknown
-	Name   string // 姓名
-	Mobile string // 手机号
+	SubjectID int
+	profile
 }
 
 type TeacherList []*Teacher
@@ -53,7 +51,7 @@ func (tl TeacherList) Less(i, j int) bool {
 
 type TeacherManager struct {
 	nameMap map[string]*Teacher // 名字索引
-	idMap   map[int64]*Teacher  // id索引表
+	idMap   map[UserID]*Teacher // id索引表
 	mutex   sync.Mutex          // 保护前两个数据表
 }
 
@@ -63,7 +61,7 @@ var (
 	ErrNotExist     = errors.New("teacher not exist")
 )
 
-func (tm *TeacherManager) Init(data map[int64]*Teacher) {
+func (tm *TeacherManager) Init(data map[UserID]*Teacher) {
 	if tm == nil {
 		return
 	}
@@ -71,7 +69,7 @@ func (tm *TeacherManager) Init(data map[int64]*Teacher) {
 	tm.nameMap = make(map[string]*Teacher)
 
 	if data == nil {
-		tm.idMap = make(map[int64]*Teacher)
+		tm.idMap = make(map[UserID]*Teacher)
 	} else {
 		tm.idMap = data
 		for _, v := range data {
@@ -119,7 +117,7 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 	return nil
 }
 
-func (tm *TeacherManager) DelTeacher(id int64) error {
+func (tm *TeacherManager) DelTeacher(id UserID) error {
 	tm.mutex.Lock()
 	tm.mutex.Unlock()
 
@@ -143,7 +141,7 @@ func (tm *TeacherManager) DelTeacher(id int64) error {
 	return nil
 }
 
-func (tm *TeacherManager) GetTeacherInfo(id int64) (*Teacher, error) {
+func (tm *TeacherManager) GetTeacherInfo(id UserID) (*Teacher, error) {
 	ret := &Teacher{}
 	err := ErrNotExist
 	tm.mutex.Lock()
@@ -155,7 +153,7 @@ func (tm *TeacherManager) GetTeacherInfo(id int64) (*Teacher, error) {
 	return ret, err
 }
 
-func (tm *TeacherManager) GetTeacherList(ids []int64) (TeacherList, error) {
+func (tm *TeacherManager) GetTeacherList(ids []UserID) (TeacherList, error) {
 	ret := TeacherList{}
 	tm.mutex.Lock()
 	for _, v := range ids {
@@ -181,14 +179,14 @@ func (tm *TeacherManager) GetAll() TeacherList {
 	return ret
 }
 
-func (tm *TeacherManager) IsTeacherExist(id int64) bool {
+func (tm *TeacherManager) IsTeacherExist(id UserID) bool {
 	tm.mutex.Lock()
 	_, ok := tm.idMap[id]
 	tm.mutex.Unlock()
 	return ok
 }
 
-func (tm *TeacherManager) CheckTeachers(ids []int64) bool {
+func (tm *TeacherManager) CheckTeachers(ids []UserID) bool {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
 
