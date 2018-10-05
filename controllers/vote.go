@@ -27,7 +27,7 @@ func (vr *voteRequest) Verify() error {
 		return err
 	}
 
-	classResp, err := models.Cm.GetInfo(&filter.Filter)
+	classResp, err := models.Cm.GetInfo(filter.GetID())
 	if err != nil {
 		logs.Debug("[voteRequest::Verify] class not found")
 		return err
@@ -123,7 +123,7 @@ func (v *VoteController) Get() {
 
 	logs.Debug("receive a vote", "voteCode", voteCode)
 
-	data, err = models.Cm.GetInfo(&filter.Filter)
+	data, err = models.Cm.GetInfo(filter.GetID())
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out

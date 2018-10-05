@@ -78,7 +78,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 	// load class
 	classMap := make(map[ClassID]*Class)
 	{
-		rows, err := ma.db.Query("SELECT iClassID,iGrade,iIndex,vClassName FROM tbclass WHERE eStatus = 1;")
+		rows, err := ma.db.Query("SELECT iClassID,iGrade,iIndex,vName FROM tbclass WHERE eStatus = 1;")
 		if err != nil {
 			return err
 		}

@@ -28,8 +28,8 @@ type ClassID int
 // Class is the
 type Class struct {
 	Filter
-	ID         ClassID
-	Name       string
+	ID         ClassID `json:"id"`
+	Name       string  `json:"name"`
 	TeacherIDs []int64 `json:"-"` // id
 }
 
@@ -39,9 +39,27 @@ type ClassResp struct {
 }
 type ClassList []*Class
 
+func (cl ClassList) Len() int {
+	return len(cl)
+}
+
+func (cl ClassList) Swap(i, j int) {
+	cl[i], cl[j] = cl[j], cl[i]
+}
+
+func (cl ClassList) Less(i, j int) bool {
+	if cl[i].Grade < cl[j].Grade {
+		return true
+	} else if cl[i].Grade > cl[j].Grade {
+		return false
+	} else {
+		return cl[i].Index < cl[j].Index
+	}
+}
+
 type Filter struct {
-	Grade int // 年级
-	Index int // 班级
+	Grade int `json:"grade"` // 年级
+	Index int `json:"index"` // 班级
 }
 
 func (f *Filter) GetID() ClassID {
@@ -71,14 +89,15 @@ func (cm *ClassManager) Init(data map[ClassID]*Class) {
 
 func (cm *ClassManager) AddClass(c *Class) (ClassID, error) {
 	var ret ClassID
-	id := c.GetID()
+	c.ID = c.GetID()
 
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
 	// 查找主键重复
-	if _, ok := cm.idMap[id]; ok {
-		return ret, errors.New("duplicated")
+	if _, ok := cm.idMap[c.ID]; ok {
+		logs.Debug("class id exist", c.ID)
+		return ret, errExist
 	}
 
 	if c.Name == "" {
@@ -86,26 +105,19 @@ func (cm *ClassManager) AddClass(c *Class) (ClassID, error) {
 	}
 
 	if !Tm.CheckTeachers(c.TeacherIDs) {
-		return ret, errors.New("teacher not exist")
+		return ret, errNotExist
 	}
 
-	// todo: consider to use transactions
 	err := Ma.InsertClass(c)
 	if err != nil {
 		logs.Warn("database error")
 		return ret, err
 	}
 
-	err = Ma.AttachTeacher(c.ID, c.TeacherIDs)
-	if err != nil {
-		logs.Warn("database error")
-		return ret, err
-	}
-
-	cm.idMap[id] = c
+	cm.idMap[c.ID] = c
 
 	logs.Info("create a new class", "classID", c.ID)
-	return id, nil
+	return c.ID, nil
 }
 
 func (cm *ClassManager) ModifyClass(c *Class) error {
@@ -198,7 +210,7 @@ func (cm *ClassManager) GetAll() ClassList {
 	return ret
 }
 
-func (cm *ClassManager) GetInfo(f *Filter) (*ClassResp, error) {
+func (cm *ClassManager) GetInfo(id ClassID) (*ClassResp, error) {
 	ret := &ClassResp{}
 	var err error
 
@@ -206,11 +218,7 @@ func (cm *ClassManager) GetInfo(f *Filter) (*ClassResp, error) {
 		return ret, nil
 	}
 
-	if f == nil {
-		return ret, errors.New("invalid input")
-	}
-
-	val, ok := cm.idMap[f.GetID()]
+	val, ok := cm.idMap[id]
 	if !ok {
 		return ret, ErrClassNotExist
 	}

@@ -5,6 +5,7 @@ import (
 	"github.com/arong/dean/models"
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
+	"sort"
 	"strconv"
 )
 
@@ -18,12 +19,13 @@ type ClassController struct {
 // @Param	body		body 	models.Teacher	true		"The object content"
 // @Success 200 {string} models.Teacher.ID
 // @router / [post]
-func (o *ClassController) Post() {
+func (c *ClassController) Post() {
 	request := models.Class{}
 	resp := CommResp{Code: -1}
 	var id models.ClassID
-	logs.Trace("[ClassController::Post]", "request", request)
-	err := json.Unmarshal(o.Ctx.Input.RequestBody, &request)
+
+	logs.Trace("[ClassController::Post]", "request", string(c.Ctx.Input.RequestBody))
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &request)
 	if err != nil {
 		resp.Msg = msgInvalidJSON
 		logs.Debug("[ClassController::Post] invalid json")
@@ -41,8 +43,8 @@ func (o *ClassController) Post() {
 	resp.Msg = msgSuccess
 	resp.Data = id
 Out:
-	o.Data["json"] = resp
-	o.ServeJSON()
+	c.Data["json"] = resp
+	c.ServeJSON()
 }
 
 // @Title Update
@@ -109,25 +111,24 @@ Out:
 // @Title Get
 // @Description create object
 // @Success 200 {object} models.ClassResp
-// @router /:grade:index [get]
+// @router /:classID [get]
 func (c *ClassController) Get() {
-	request := models.Filter{}
 	resp := CommResp{Code: -1}
 	var data *models.ClassResp
 	var err error
 
-	request.Grade, _ = strconv.Atoi(c.GetString(":grade"))
-	request.Index, err = strconv.Atoi(c.GetString(":index"))
+	id, err := strconv.Atoi(c.GetString(":classID"))
 	if err != nil {
 		resp.Msg = msgInvalidJSON
 		goto Out
 	}
 
-	data, err = models.Cm.GetInfo(&request)
+	data, err = models.Cm.GetInfo(models.ClassID(id))
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out
 	}
+
 	resp.Code = 0
 	resp.Msg = msgSuccess
 	resp.Data = data
@@ -144,8 +145,11 @@ func (c *ClassController) GetAll() {
 	resp := &CommResp{
 		Code: 0,
 		Msg:  msgSuccess,
-		Data: models.Cm.GetAll(),
 	}
+	tmp := models.Cm.GetAll()
+	sort.Sort(tmp)
+
+	resp.Data = CommList{RecordCount:len(tmp), RecordList:tmp}
 	c.Data["json"] = resp
 	c.ServeJSON()
 }

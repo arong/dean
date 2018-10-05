@@ -8,6 +8,11 @@ type CommResp struct {
 	Data interface{} `json:"data"`
 }
 
+type CommList struct {
+	RecordCount int         `json:"record_count"`
+	RecordList  interface{} `json:"record_list"` //  intended for
+}
+
 const (
 	defaultResp = `{"code":-1,"msg":"internal error","data":null}`
 )
