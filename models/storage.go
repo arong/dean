@@ -65,7 +65,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 
 		for rows.Next() {
 			tmp := &Teacher{}
-			err = rows.Scan(&tmp.ID, &tmp.Gender, &tmp.Name, &tmp.Mobile)
+			err = rows.Scan(&tmp.ID, &tmp.Gender, &tmp.LoginName, &tmp.Mobile)
 			if err != nil {
 				continue
 			}
@@ -143,7 +143,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 
 		for rows.Next() {
 			u := User{}
-			err = rows.Scan(&u.ID, &u.Name, &u.RegisterID, &u.Gender)
+			err = rows.Scan(&u.ID, &u.LoginName, &u.RegisterID, &u.Gender)
 			if err != nil {
 				continue
 			}
@@ -152,6 +152,45 @@ func (ma *mysqlAgent) LoadAllData() error {
 	}
 	// init student manager
 	Um.Init(userMap)
+
+	// init access control
+	userPassMap := make(map[string]string)
+	teacherPassMap := make(map[string]string)
+	{
+		rows, err := ma.db.Query("SELECT iUserID, vPassword, eType FROM tbpassword;")
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var id UserID
+			var password string
+			var eType int
+			err = rows.Scan(&id, &password, &eType)
+			if err != nil {
+				logs.Error("scan failed", err)
+				continue
+			}
+			if eType == 1 {
+				if v, ok := userMap[id]; !ok {
+					continue
+				} else {
+					userPassMap[v.LoginName] = password
+				}
+			} else if eType == 2 {
+				if v, ok := teacherMap[id]; !ok {
+					continue
+				} else {
+					teacherPassMap[v.LoginName] = password
+				}
+			}
+		}
+	}
+
+	Ac.teacherMap = teacherPassMap
+	Ac.studentMap = userPassMap
+	logs.Info(userPassMap)
 	logs.Info("load data success")
 	return nil
 }
@@ -165,7 +204,7 @@ func (ma *mysqlAgent) InsertTeacher(t *Teacher) error {
 	}
 	defer stmtIns.Close()
 
-	resp, err := stmtIns.Exec(t.Gender, t.Name, t.Mobile)
+	resp, err := stmtIns.Exec(t.Gender, t.LoginName, t.Mobile)
 	if err != nil {
 		return err
 	}
@@ -181,7 +220,7 @@ func (ma *mysqlAgent) UpdateTeacher(t *Teacher) error {
 	}
 	defer stmtIns.Close()
 
-	_, err = stmtIns.Exec(t.Gender, t.Name, t.Mobile, t.ID)
+	_, err = stmtIns.Exec(t.Gender, t.LoginName, t.Mobile, t.ID)
 	if err != nil {
 		return err
 	}
@@ -318,7 +357,7 @@ func (ma *mysqlAgent) InsertUser(u *User) error {
 		return err
 	}
 
-	rs, err := stmt.Exec(u.RegisterID, u.Name, u.Gender)
+	rs, err := stmt.Exec(u.RegisterID, u.LoginName, u.Gender)
 	if err != nil {
 		logs.Warn("[mysqlAgent::InsertUser]failed", err)
 		return err
@@ -348,7 +387,7 @@ func (ma *mysqlAgent) UpdateUser(u *User) error {
 	}
 	defer stmtIns.Close()
 
-	_, err = stmtIns.Exec(u.Name, u.ID)
+	_, err = stmtIns.Exec(u.LoginName, u.ID)
 	if err != nil {
 		logs.Warn("execute sql failed", "err", err)
 		return err

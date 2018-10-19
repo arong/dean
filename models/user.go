@@ -20,10 +20,10 @@ func (um *userManager) Init(userMap map[UserID]*User) {
 	if userMap != nil {
 		um.idMap = userMap
 		for _, v := range userMap {
-			if _, ok := um.nameMap[v.Name]; ok {
+			if _, ok := um.nameMap[v.LoginName]; ok {
 				logs.Warn("duplicated user found")
 			}
-			um.nameMap[v.Name] = v
+			um.nameMap[v.LoginName] = v
 		}
 	} else {
 		um.idMap = make(map[UserID]*User)
@@ -57,7 +57,7 @@ type profile struct {
 	Password  string `json:"password"`
 	LoginName string `json:"login_name"`
 	RealName  string `json:"real_name"`
-	Name      string `json:"name"`
+	//Name      string `json:"name"`
 	Mobile    string `json:"mobile"`
 	Address   string `json:"address"`
 }
@@ -65,11 +65,11 @@ type profile struct {
 type UserID int64
 
 func (um *userManager) AddUser(u *User) (UserID, error) {
-	if len(u.Name) == 0 {
+	if len(u.LoginName) == 0 {
 		return 0, errors.New("invalid name")
 	}
 
-	if _, ok := um.nameMap[u.Name]; ok {
+	if _, ok := um.nameMap[u.LoginName]; ok {
 		return 0, errExist
 	}
 
@@ -95,8 +95,10 @@ func (um *userManager) AddUser(u *User) (UserID, error) {
 		return 0, err
 	}
 
-	um.nameMap[u.Name] = u
+	um.nameMap[u.LoginName] = u
 	um.idMap[u.ID] = u
+
+	Ac.AddUser(u.LoginName, u.Password)
 	return u.ID, nil
 }
 
@@ -111,7 +113,7 @@ func (um *userManager) DelUser(uid UserID) error {
 		logs.Warn("[userManager::DelUser] failed", err)
 		return err
 	}
-	delete(um.nameMap, curr.Name)
+	delete(um.nameMap, curr.LoginName)
 	delete(um.idMap, uid)
 	return nil
 }
@@ -126,8 +128,8 @@ func (um *userManager) ModUser(u *User) error {
 		return errNotExist
 	}
 
-	if curr.Name != u.Name {
-		curr.Name = u.Name
+	if curr.LoginName != u.LoginName {
+		curr.LoginName = u.LoginName
 	}
 
 	if u.RegisterID != "" && curr.RegisterID != u.RegisterID {
@@ -141,6 +143,14 @@ func (um *userManager) GetUser(uid UserID) (*User, error) {
 		return val, nil
 	}
 	return nil, errors.New("User not exists")
+}
+
+func (um *userManager) GetUserByName(name string) (*User, error) {
+	val, ok := um.nameMap[name]
+	if !ok {
+		return nil, errNotExist
+	}
+	return val, nil
 }
 
 func (um *userManager) GetAllUsers(f *Filter) userList {

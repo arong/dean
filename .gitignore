@@ -1,12 +1,14 @@
 # specific file
 routers/commentsRouter_.go
 routers/commentsRouter_controllers.go
-swagger.zip
 
 # file type
 *.exe
 *~
 *.tmp
+*.log
+*.tar.gz
+*.zip
 
 # directory
 swagger/

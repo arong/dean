@@ -174,12 +174,13 @@ func (u *UserController) Login() {
 	username := u.GetString("username")
 	password := u.GetString("password")
 
-	token, err := models.Ac.Login(username, password)
+	token, err := models.Ac.Login(username, password, models.TypeStudent)
 	if err != nil {
-		logs.Debug("[] login failed")
+		logs.Debug("[UserController::Login] login failed", username, err)
 		resp.Msg = err.Error()
 		goto Out
 	}
+	u.SetSession("uid", token)
 	resp.Code = 0
 	resp.Msg = msgSuccess
 	resp.Data = token
@@ -187,7 +188,6 @@ Out:
 	u.Data["json"] = resp
 	u.ServeJSON()
 }
-
 
 // @Title logout
 // @Description Logs out current logged in user session
@@ -227,4 +227,3 @@ func (u *UserController) ResetPassword() {
 	u.Data["json"] = resp
 	u.ServeJSON()
 }
-

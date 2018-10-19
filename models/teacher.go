@@ -73,7 +73,7 @@ func (tm *TeacherManager) Init(data map[UserID]*Teacher) {
 	} else {
 		tm.idMap = data
 		for _, v := range data {
-			tm.nameMap[v.Name] = v
+			tm.nameMap[v.LoginName] = v
 		}
 	}
 }
@@ -83,11 +83,11 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 		return ErrInvalidParam
 	}
 
-	if t.Name == "" {
+	if t.LoginName == "" {
 		return ErrInvalidParam
 	}
 
-	if _, ok := tm.nameMap[t.Name]; ok {
+	if _, ok := tm.nameMap[t.LoginName]; ok {
 		return ErrNameExist
 	}
 
@@ -108,7 +108,7 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 	// add to map
 	{
 		tm.mutex.Lock()
-		tm.nameMap[t.Name] = t
+		tm.nameMap[t.LoginName] = t
 		tm.idMap[t.ID] = t
 		tm.mutex.Unlock()
 	}
@@ -135,7 +135,7 @@ func (tm *TeacherManager) DelTeacher(id UserID) error {
 	}
 
 	// remove from map
-	delete(tm.nameMap, val.Name)
+	delete(tm.nameMap, val.LoginName)
 	delete(tm.idMap, val.ID)
 
 	return nil

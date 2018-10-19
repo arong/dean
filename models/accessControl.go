@@ -2,9 +2,11 @@ package models
 
 import (
 	"github.com/astaxie/beego/logs"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/nbutton23/zxcvbn-go"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
+	"time"
 )
 
 var Ac accessControl
@@ -16,8 +18,13 @@ var (
 	ErrPasswordError = errors.New("password error")
 )
 
+const (
+	hmacSecret = "iLoveLFLSS"
+)
+
 type accessControl struct {
-	secret map[string]string
+	teacherMap map[string]string // user name -> password
+	studentMap map[string]string // user name -> token
 }
 
 func (ac *accessControl) IsValidPassword(p string) error {
@@ -38,7 +45,7 @@ func (ac *accessControl) IsValidPassword(p string) error {
 	return nil
 }
 
-func (ac *accessControl) EncryptPassword(p string) (string, error){
+func (ac *accessControl) EncryptPassword(p string) (string, error) {
 	encrypted := ""
 	hash, err := bcrypt.GenerateFromPassword([]byte(p), bcrypt.DefaultCost)
 	if err != nil {
@@ -50,24 +57,65 @@ func (ac *accessControl) EncryptPassword(p string) (string, error){
 	return encrypted, nil
 }
 
-func (ac *accessControl) isMatch(plain, encrypted string) error {
-	return nil
+func (ac *accessControl) GenToken(name string) (string, error) {
+	curr, err := Um.GetUserByName(name)
+	if err != nil {
+		logs.Error("bug found")
+		return "", err
+	}
+
+	// Create a new token object, specifying signing method and the claims
+	// you would like it to contain.
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"id":     curr.ID,
+		"type":   "teacher",
+		"expire": time.Now().Add(40 * time.Minute).Unix(),
+	})
+
+	// Sign and get the complete encoded token as a string using the secret
+	tokenString, err := token.SignedString([]byte(hmacSecret))
+	if err != nil {
+		logs.Error("failed to generate access token", err)
+		return "", err
+	}
+	// flush cache
+	return tokenString, nil
 }
 
-func (ac *accessControl) Login(name, password string) (string, error) {
+func (ac *accessControl) Login(name, password string, uType int) (string, error) {
 	token := ""
-	val, ok := ac.secret[name]
-	if !ok {
-		return token, errNotExist
-	}
+	encrypted := ""
+	ok := false
 
-	if ac.isMatch(password, val) != nil {
-		logs.Info("invalid password")
+	if uType == TypeStudent {
+		encrypted, ok = ac.studentMap[name]
+		if !ok {
+			return token, errNotExist
+		}
+	} else if uType == TypeTeacher {
+		encrypted, ok = ac.teacherMap[name]
+		if !ok {
+			return token, errNotExist
+		}
+	} else {
+		return token, errors.New("invalid request")
+	}
+logs.Debug(encrypted, password)
+	err := bcrypt.CompareHashAndPassword([]byte(encrypted), []byte(password))
+	if err != nil {
+		logs.Info("failed", err)
 		return token, ErrPasswordError
 	}
-	return "aronic", nil
+	return ac.GenToken(name)
 }
 
 func (ac *accessControl) Logout(token string) error {
 	return nil
+}
+
+func (ac *accessControl) AddUser(name, password string) {
+	ac.studentMap[name] = password
+}
+func (ac *accessControl) AddTeacher(name, password string) {
+	ac.teacherMap[name] = password
 }

@@ -1,24 +1,41 @@
 package main
 
 import (
+	"github.com/arong/dean/controllers"
 	"github.com/arong/dean/models"
 	_ "github.com/arong/dean/routers"
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/context"
 	"github.com/astaxie/beego/logs"
 	"github.com/astaxie/beego/plugins/cors"
+	"github.com/astaxie/beego/session"
 )
 
-var FilterUser = func(ctx *context.Context) {
-	uid := ctx.Input.Session("uid")
-	if uid == nil {
-		ctx.Redirect(302, "/login")
-		return
-	}
+var globalSessions *session.Manager
 
-	_, ok := uid.(int)
-	if !ok && ctx.Request.RequestURI != "/login" {
-		ctx.Redirect(302, "/login")
+func init() {
+	sessionConfig := &session.ManagerConfig{
+		CookieName:      "dean",
+		EnableSetCookie: true,
+		Gclifetime:      3600,
+		Maxlifetime:     3600,
+		Secure:          false,
+		CookieLifeTime:  2400,
+		ProviderConfig:  "./tmp",
+	}
+	globalSessions, _ = session.NewManager("memory", sessionConfig)
+	go globalSessions.GC()
+}
+
+var FilterUser = func(ctx *context.Context) {
+	_, ok := ctx.Input.Session("uid").(int)
+	path := ctx.Request.URL.Path
+	if !ok && (path != "/api/v1/dean/user/login") && (path != "/api/v1/dean/teacher/login") {
+		// return a invalid
+		ctx.Output.JSON(controllers.CommResp{Code: -1, Msg: "invalid token"},
+			false,
+			true)
+		return
 	}
 }
 
@@ -48,7 +65,7 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	//beego.InsertFilter("/*", beego.BeforeRouter, FilterUser)
+	beego.InsertFilter("/*", beego.BeforeRouter, FilterUser)
 
 	beego.Run(":2008")
 	logs.Info("server stopped.")
