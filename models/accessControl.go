@@ -2,11 +2,9 @@ package models
 
 import (
 	"github.com/astaxie/beego/logs"
-	"github.com/dgrijalva/jwt-go"
 	"github.com/nbutton23/zxcvbn-go"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
-	"time"
 )
 
 var Ac accessControl
@@ -21,6 +19,11 @@ var (
 const (
 	hmacSecret = "iLoveLFLSS"
 )
+
+type LoginInfo struct {
+	LoginName string `json:"login_name"`
+	Password  string `json:"password"`
+}
 
 type accessControl struct {
 	teacherMap map[string]string // user name -> password
@@ -58,28 +61,29 @@ func (ac *accessControl) EncryptPassword(p string) (string, error) {
 }
 
 func (ac *accessControl) GenToken(name string) (string, error) {
-	curr, err := Um.GetUserByName(name)
-	if err != nil {
-		logs.Error("bug found")
-		return "", err
-	}
-
-	// Create a new token object, specifying signing method and the claims
-	// you would like it to contain.
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id":     curr.ID,
-		"type":   "teacher",
-		"expire": time.Now().Add(40 * time.Minute).Unix(),
-	})
-
-	// Sign and get the complete encoded token as a string using the secret
-	tokenString, err := token.SignedString([]byte(hmacSecret))
-	if err != nil {
-		logs.Error("failed to generate access token", err)
-		return "", err
-	}
-	// flush cache
-	return tokenString, nil
+	return "",nil
+	//curr, err := Um.GetUserByName(name)
+	//if err != nil {
+	//	logs.Error("bug found")
+	//	return "", err
+	//}
+	//
+	//// Create a new token object, specifying signing method and the claims
+	//// you would like it to contain.
+	//token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+	//	"id":     curr.ID,
+	//	"type":   "teacher",
+	//	"expire": time.Now().Add(40 * time.Minute).Unix(),
+	//})
+	//
+	//// Sign and get the complete encoded token as a string using the secret
+	//tokenString, err := token.SignedString([]byte(hmacSecret))
+	//if err != nil {
+	//	logs.Error("failed to generate access token", err)
+	//	return "", err
+	//}
+	//// flush cache
+	//return tokenString, nil
 }
 
 func (ac *accessControl) Login(name, password string, uType int) (string, error) {
@@ -100,7 +104,7 @@ func (ac *accessControl) Login(name, password string, uType int) (string, error)
 	} else {
 		return token, errors.New("invalid request")
 	}
-logs.Debug(encrypted, password)
+	logs.Debug(encrypted, password)
 	err := bcrypt.CompareHashAndPassword([]byte(encrypted), []byte(password))
 	if err != nil {
 		logs.Info("failed", err)

@@ -31,8 +31,26 @@ func Init(conf *DBConfig) {
 }
 
 type Teacher struct {
-	SubjectID int
+	TeacherID UserID `json:"teacher_id"`
+	SubjectID int    `json:"subject_id"`
+	LoginInfo
 	profile
+}
+
+func (t *Teacher) IsValid() error {
+	if t.LoginName == "" {
+		return ErrInvalidParam
+	}
+
+	if t.Mobile == "" {
+		return ErrInvalidParam
+	}
+
+	if t.Gender < eGenderMale && t.Gender > eGenderUnknown {
+		return ErrInvalidParam
+	}
+
+	return nil
 }
 
 type TeacherList []*Teacher
@@ -46,7 +64,7 @@ func (tl TeacherList) Swap(i, j int) {
 }
 
 func (tl TeacherList) Less(i, j int) bool {
-	return tl[i].ID < tl[j].ID
+	return tl[i].TeacherID < tl[j].TeacherID
 }
 
 type TeacherManager struct {
@@ -79,11 +97,7 @@ func (tm *TeacherManager) Init(data map[UserID]*Teacher) {
 }
 
 func (tm *TeacherManager) AddTeacher(t *Teacher) error {
-	if t.ID != 0 {
-		return ErrInvalidParam
-	}
-
-	if t.LoginName == "" {
+	if t.TeacherID != 0 {
 		return ErrInvalidParam
 	}
 
@@ -91,17 +105,15 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 		return ErrNameExist
 	}
 
-	if t.Mobile == "" {
-		return ErrInvalidParam
-	}
-
-	if t.Gender < eGenderMale && t.Gender > eGenderUnknown {
-		return ErrInvalidParam
-	}
-
-	err := Ma.InsertTeacher(t)
+	err := t.IsValid()
 	if err != nil {
-		logs.Warn("[] database error")
+		logs.Warn("[] invalid parameter", "err", err)
+		return err
+	}
+
+	err = Ma.InsertTeacher(t)
+	if err != nil {
+		logs.Warn("[TeacherManager::AddTeacher] database error")
 		return err
 	}
 
@@ -109,14 +121,40 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 	{
 		tm.mutex.Lock()
 		tm.nameMap[t.LoginName] = t
-		tm.idMap[t.ID] = t
+		tm.idMap[t.TeacherID] = t
 		tm.mutex.Unlock()
 	}
 
-	logs.Info("id=", t.ID)
+	logs.Info("id=", t.TeacherID)
 	return nil
 }
 
+func (tm *TeacherManager) ModTeacher(t *Teacher) error {
+	if t.TeacherID == 0  {
+		logs.Info("[TeacherManager::ModTeacher] invalid parameter")
+		return ErrInvalidParam
+	}
+
+	err := t.IsValid()
+	if err != nil {
+		logs.Info("[TeacherManager::ModTeacher] invalid parameter", "err", err)
+		return err
+	}
+
+	err = Ma.UpdateTeacher(t)
+	if err != nil {
+		logs.Info("[TeacherManager::ModTeacher] UpdateTeacher failed", "err", err)
+		return err
+	}
+
+	{
+		tm.mutex.Lock()
+		tm.nameMap[t.LoginName] = t
+		tm.idMap[t.TeacherID] = t
+		tm.mutex.Unlock()
+	}
+	return nil
+}
 func (tm *TeacherManager) DelTeacher(id UserID) error {
 	tm.mutex.Lock()
 	tm.mutex.Unlock()
@@ -136,7 +174,7 @@ func (tm *TeacherManager) DelTeacher(id UserID) error {
 
 	// remove from map
 	delete(tm.nameMap, val.LoginName)
-	delete(tm.idMap, val.ID)
+	delete(tm.idMap, val.TeacherID)
 
 	return nil
 }

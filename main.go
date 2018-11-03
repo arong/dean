@@ -65,7 +65,7 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	beego.InsertFilter("/*", beego.BeforeRouter, FilterUser)
+	//beego.InsertFilter("/*", beego.BeforeRouter, FilterUser)
 
 	beego.Run(":2008")
 	logs.Info("server stopped.")

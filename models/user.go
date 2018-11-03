@@ -31,8 +31,10 @@ func (um *userManager) Init(userMap map[UserID]*User) {
 }
 
 type User struct {
+	StudentID UserID `json:"student_id"`
 	Filter
 	profile
+	LoginInfo
 	RegisterID string `json:"register_id"` // 学号
 }
 
@@ -47,19 +49,16 @@ func (cl userList) Swap(i, j int) {
 }
 
 func (cl userList) Less(i, j int) bool {
-	return cl[i].ID < cl[j].ID
+	return cl[i].StudentID < cl[j].StudentID
 }
 
 type profile struct {
-	ID        UserID `json:"id"`
 	Age       int    `json:"age"`
 	Gender    int    `json:"gender"`
-	Password  string `json:"password"`
-	LoginName string `json:"login_name"`
 	RealName  string `json:"real_name"`
-	//Name      string `json:"name"`
 	Mobile    string `json:"mobile"`
 	Address   string `json:"address"`
+	Birthday  string `json:"birthday"`
 }
 
 type UserID int64
@@ -96,10 +95,10 @@ func (um *userManager) AddUser(u *User) (UserID, error) {
 	}
 
 	um.nameMap[u.LoginName] = u
-	um.idMap[u.ID] = u
+	um.idMap[u.StudentID] = u
 
 	Ac.AddUser(u.LoginName, u.Password)
-	return u.ID, nil
+	return u.StudentID, nil
 }
 
 func (um *userManager) DelUser(uid UserID) error {
@@ -119,11 +118,11 @@ func (um *userManager) DelUser(uid UserID) error {
 }
 
 func (um *userManager) ModUser(u *User) error {
-	if u.ID == 0 {
+	if u.StudentID == 0 {
 		return errors.New("invalid user id")
 	}
 
-	curr, ok := um.idMap[u.ID]
+	curr, ok := um.idMap[u.StudentID]
 	if !ok {
 		return errNotExist
 	}

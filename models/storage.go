@@ -56,7 +56,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 	// load all teachers
 	teacherMap := make(map[UserID]*Teacher)
 	{
-		rows, err := ma.db.Query("SELECT iTeacherID,eGender,vName,vMobile FROM tbTeacher WHERE eStatus = 1;")
+		rows, err := ma.db.Query("SELECT iTeacherID,eGender,vName,vMobile,iPrimarySubjectID,dtBirthday FROM tbTeacher WHERE eStatus = 1;")
 		if err != nil {
 			logs.Warn("query database failed", "err", err)
 			return err
@@ -65,11 +65,11 @@ func (ma *mysqlAgent) LoadAllData() error {
 
 		for rows.Next() {
 			tmp := &Teacher{}
-			err = rows.Scan(&tmp.ID, &tmp.Gender, &tmp.LoginName, &tmp.Mobile)
+			err = rows.Scan(&tmp.TeacherID, &tmp.Gender, &tmp.RealName, &tmp.Mobile, &tmp.SubjectID, &tmp.Birthday)
 			if err != nil {
 				continue
 			}
-			teacherMap[tmp.ID] = tmp
+			teacherMap[tmp.TeacherID] = tmp
 		}
 	}
 
@@ -143,11 +143,11 @@ func (ma *mysqlAgent) LoadAllData() error {
 
 		for rows.Next() {
 			u := User{}
-			err = rows.Scan(&u.ID, &u.LoginName, &u.RegisterID, &u.Gender)
+			err = rows.Scan(&u.StudentID, &u.LoginName, &u.RegisterID, &u.Gender)
 			if err != nil {
 				continue
 			}
-			userMap[u.ID] = &u
+			userMap[u.StudentID] = &u
 		}
 	}
 	// init student manager
@@ -198,29 +198,29 @@ func (ma *mysqlAgent) LoadAllData() error {
 // for teacher
 func (ma *mysqlAgent) InsertTeacher(t *Teacher) error {
 	// Prepare statement for inserting data
-	stmtIns, err := ma.db.Prepare("INSERT INTO `tbteacher` (`eGender`, `vName`, `vMobile`) VALUES (?,?,?);")
+	stmtIns, err := ma.db.Prepare("INSERT INTO `tbteacher` (`eGender`, `vName`, `vMobile`, `dtBirthday`) VALUES (?,?,?,?);")
 	if err != nil {
 		return err
 	}
 	defer stmtIns.Close()
 
-	resp, err := stmtIns.Exec(t.Gender, t.LoginName, t.Mobile)
+	resp, err := stmtIns.Exec(t.Gender, t.LoginName, t.Mobile, t.Birthday)
 	if err != nil {
 		return err
 	}
 	id, err := resp.LastInsertId()
-	t.ID = UserID(id)
+	t.TeacherID = UserID(id)
 	return nil
 }
 
 func (ma *mysqlAgent) UpdateTeacher(t *Teacher) error {
-	stmtIns, err := ma.db.Prepare("UPDATE tbteacher SET eGender=?,vName=?,vMobile=? WHERE iTeacherID=?;")
+	stmtIns, err := ma.db.Prepare("UPDATE tbteacher SET eGender=?,vName=?,vMobile=?,dtBirthday=?,iPrimarySubjectID=? WHERE iTeacherID=?;")
 	if err != nil {
 		return err
 	}
 	defer stmtIns.Close()
 
-	_, err = stmtIns.Exec(t.Gender, t.LoginName, t.Mobile, t.ID)
+	_, err = stmtIns.Exec(t.Gender, t.LoginName, t.Mobile, t.Birthday, t.SubjectID, t.TeacherID)
 	if err != nil {
 		return err
 	}
@@ -364,7 +364,7 @@ func (ma *mysqlAgent) InsertUser(u *User) error {
 	}
 
 	id, err := rs.LastInsertId()
-	u.ID = UserID(id)
+	u.StudentID = UserID(id)
 
 	stmt, err = tx.Prepare("INSERT INTO `tbPassword`(`iUserID`, `vPassword`) VALUES (?,?)")
 	if err != nil {
@@ -387,7 +387,7 @@ func (ma *mysqlAgent) UpdateUser(u *User) error {
 	}
 	defer stmtIns.Close()
 
-	_, err = stmtIns.Exec(u.LoginName, u.ID)
+	_, err = stmtIns.Exec(u.LoginName, u.StudentID)
 	if err != nil {
 		logs.Warn("execute sql failed", "err", err)
 		return err
