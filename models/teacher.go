@@ -38,16 +38,12 @@ type Teacher struct {
 }
 
 func (t *Teacher) IsValid() error {
-	if t.LoginName == "" {
-		return ErrInvalidParam
-	}
-
 	if t.Mobile == "" {
-		return ErrInvalidParam
+		return errors.New("invalid mobile")
 	}
 
 	if t.Gender < eGenderMale && t.Gender > eGenderUnknown {
-		return ErrInvalidParam
+		return errors.New("invalid gender")
 	}
 
 	return nil
@@ -65,6 +61,20 @@ func (tl TeacherList) Swap(i, j int) {
 
 func (tl TeacherList) Less(i, j int) bool {
 	return tl[i].TeacherID < tl[j].TeacherID
+}
+
+type TeacherListResp struct {
+	Total      int         `json:"total"`
+	RecordList interface{} `json:"list"`
+}
+
+type TeacherFilter struct {
+	Page   int    `json:"page"` // start from 1
+	Size   int    `json:"size"`
+	Gender int    `json:"gender"`
+	Age    int    `json:"age"`
+	Name   string `json:"name"`
+	Mobile string `json:"mobile"`
 }
 
 type TeacherManager struct {
@@ -107,7 +117,7 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 
 	err := t.IsValid()
 	if err != nil {
-		logs.Warn("[] invalid parameter", "err", err)
+		logs.Warn("[TeacherManager::AddTeacher] invalid parameter", "err", err)
 		return err
 	}
 
@@ -130,7 +140,7 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 }
 
 func (tm *TeacherManager) ModTeacher(t *Teacher) error {
-	if t.TeacherID == 0  {
+	if t.TeacherID == 0 {
 		logs.Info("[TeacherManager::ModTeacher] invalid parameter")
 		return ErrInvalidParam
 	}
@@ -155,28 +165,33 @@ func (tm *TeacherManager) ModTeacher(t *Teacher) error {
 	}
 	return nil
 }
-func (tm *TeacherManager) DelTeacher(id UserID) error {
+
+func (tm *TeacherManager) DelTeacher(idList []UserID) ([]UserID, error ){
 	tm.mutex.Lock()
 	tm.mutex.Unlock()
 
-	val, ok := tm.idMap[id]
-	if !ok {
-		logs.Debug("[TeacherManager::DelTeacher] not found", "id", id)
-		return ErrNotExist
+	failed := []UserID{}
+	for _, v := range idList {
+		val, ok := tm.idMap[v]
+		if !ok {
+			logs.Debug("[TeacherManager::DelTeacher] not found", "id", v)
+			failed = append(failed, v)
+			continue
+		}
+
+		// delete from database
+		err := Ma.DeleteTeacher(v)
+		if err != nil {
+			logs.Warn("[TeacherManager::DelTeacher] database error")
+			failed = append(failed, v)
+			continue
+		}
+
+		// remove from map
+		delete(tm.nameMap, val.LoginName)
+		delete(tm.idMap, val.TeacherID)
 	}
-
-	// delete from database
-	err := Ma.DeleteTeacher(id)
-	if err != nil {
-		logs.Warn("[TeacherManager::DelTeacher] database error")
-		return err
-	}
-
-	// remove from map
-	delete(tm.nameMap, val.LoginName)
-	delete(tm.idMap, val.TeacherID)
-
-	return nil
+	return failed, nil
 }
 
 func (tm *TeacherManager) GetTeacherInfo(id UserID) (*Teacher, error) {
@@ -205,16 +220,45 @@ func (tm *TeacherManager) GetTeacherList(ids []UserID) (TeacherList, error) {
 	return ret, nil
 }
 
-func (tm *TeacherManager) GetAll() TeacherList {
+func (tm *TeacherManager) GetAll(f *TeacherFilter) TeacherListResp {
 	ret := TeacherList{}
+	total := 0
+	start := (f.Page - 1) * f.Size
+	end := f.Page * f.Size
+
+	logs.Debug("[TeacherManager::GetAll]", "start", start, "end", end)
 	tm.mutex.Lock()
 	for _, v := range tm.idMap {
-		tmp := *v
-		ret = append(ret, &tmp)
+		if f.Gender != 0 && f.Gender != v.Gender {
+			continue
+		}
+
+		if f.Name != "" && f.Name != v.RealName {
+			continue
+		}
+
+		total++
+		tmp := v
+		ret = append(ret, tmp)
+	}
+
+	sort.Sort(ret)
+	sub := TeacherList{}
+	for k, v := range ret {
+		if k < start || k >= end {
+			continue
+		}
+		tmp := v
+		sub = append(sub, tmp)
 	}
 	tm.mutex.Unlock()
-	sort.Sort(ret)
-	return ret
+	return TeacherListResp{Total: total, RecordList: sub}
+}
+
+func (tm *TeacherManager) FilterTeacher() (TeacherListResp, error) {
+	ret := TeacherListResp{}
+
+	return ret, nil
 }
 
 func (tm *TeacherManager) IsTeacherExist(id UserID) bool {

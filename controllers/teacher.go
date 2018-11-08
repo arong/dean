@@ -71,6 +71,7 @@ func (u *TeacherController) Put() {
 		goto Out
 	}
 
+	teacher.TeacherID = models.UserID(uid)
 	err = models.Tm.ModTeacher(&teacher)
 	if err != nil {
 		resp.Msg = err.Error()
@@ -83,7 +84,6 @@ Out:
 	u.Data["json"] = resp
 	u.ServeJSON()
 }
-
 
 // @Title Get
 // @Description find object by objectid
@@ -124,32 +124,65 @@ Out:
 
 // @Title GetAll
 // @Description get all objects
-// @Success 200 {object} models.Teacher
-// @router / [get]
+// @Param	page		query 	string	true		"The username for login"
+// @Param	size		query 	string	true		"The password for login"
+// @Param	body		body 	models.TeacherFilter	true		"The object content"
+// @Success 200 {object} models.TeacherListResp
+// @router /filter [post]
 func (o *TeacherController) GetAll() {
-	resp := &CommResp{
-		Code: 0,
-		Msg:  msgSuccess,
-		Data: models.Tm.GetAll(),
+	resp := &CommResp{}
+	request := models.TeacherFilter{}
+	err := json.Unmarshal(o.Ctx.Input.RequestBody, &request)
+	if err != nil {
+		resp.Msg = msgInvalidJSON
+		logs.Debug("[TeacherController::GetAll] Unmarshal failed", "err", err)
+		goto Out
 	}
+
+	if request.Page <= 0 || request.Size <= 0 {
+		resp.Msg = msgInvalidParam
+		logs.Debug("[TeacherController::GetAll] invalid size")
+		goto Out
+	}
+
+	resp.Data = models.Tm.GetAll(&request)
+
+Out:
 	o.Data["json"] = resp
 	o.ServeJSON()
 }
 
+type DeleteTeacherReq struct {
+	IDList []models.UserID `json:"id_list"`
+}
+
+type DeleteTeacherResp struct {
+	FailedList []models.UserID
+}
+
 // @Title Delete
 // @Description delete the user
-// @Param	uid		path 	string	true		"The uid you want to delete"
+// @Param	body		body 	models.TeacherFilter	true		"The object content"
 // @Success 200 {string} delete success!
 // @Failure 403 uid is empty
-// @router /:teacherID [delete]
+// @router /delete [post]
 func (tc *TeacherController) Delete() {
+	request:= DeleteTeacherReq{}
 	resp := &CommResp{Code: -1}
-	uid := tc.GetString(":teacherID")
-	id, err := strconv.ParseInt(uid, 10, 64)
-	err = models.Tm.DelTeacher(models.UserID(id))
+	ret := DeleteTeacherResp{}
+
+	err := json.Unmarshal(tc.Ctx.Input.RequestBody, &request)
+	if err != nil {
+		resp.Msg = msgInvalidJSON
+		logs.Debug("[TeacherController::Delete] Unmarshal failed", "err", err)
+		goto Out
+	}
+
+	ret.FailedList, err = models.Tm.DelTeacher(request.IDList)
 	if err != nil {
 		logs.Debug("[TeacherController::Delete] failed", "err", err)
 		resp.Msg = err.Error()
+		resp.Data = ret
 		goto Out
 	}
 
