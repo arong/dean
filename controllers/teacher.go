@@ -20,7 +20,7 @@ type TeacherController struct {
 // @router / [post]
 func (o *TeacherController) Post() {
 	request := models.Teacher{}
-	resp := CommResp{Code: -1}
+	resp := BaseResponse{Code: -1}
 
 	err := json.Unmarshal(o.Ctx.Input.RequestBody, &request)
 	if err != nil {
@@ -50,7 +50,7 @@ Out:
 // @Failure 403 :uid is not int
 // @router /:uid [put]
 func (u *TeacherController) Put() {
-	resp := &CommResp{Code: -1}
+	resp := &BaseResponse{Code: -1}
 	tmp := u.GetString(":uid")
 	var teacher models.Teacher
 	uid, err := strconv.ParseInt(tmp, 10, 64)
@@ -92,7 +92,7 @@ Out:
 // @Failure 403 :teacherID is empty
 // @router /:teacherID [get]
 func (o *TeacherController) Get() {
-	resp := CommResp{Code: -1}
+	resp := BaseResponse{Code: -1}
 	var err error
 	var id int64
 	ret := &models.Teacher{}
@@ -130,7 +130,7 @@ Out:
 // @Success 200 {object} models.TeacherListResp
 // @router /filter [post]
 func (o *TeacherController) Filter() {
-	resp := &CommResp{}
+	resp := &BaseResponse{}
 	request := models.TeacherFilter{}
 	err := json.Unmarshal(o.Ctx.Input.RequestBody, &request)
 	if err != nil {
@@ -157,7 +157,7 @@ Out:
 // @Success 200 {object} models.TeacherListResp
 // @router / [get]
 func (o *TeacherController) GetAll() {
-	o.Data["json"] = &CommResp{Msg: msgSuccess, Data: models.Tm.GetAll()}
+	o.Data["json"] = &BaseResponse{Msg: msgSuccess, Data: models.Tm.GetAll()}
 	o.ServeJSON()
 }
 
@@ -177,7 +177,7 @@ type DeleteTeacherResp struct {
 // @router /delete [post]
 func (tc *TeacherController) Delete() {
 	request := DeleteTeacherReq{}
-	resp := &CommResp{Code: -1}
+	resp := &BaseResponse{Code: -1}
 	ret := DeleteTeacherResp{}
 
 	err := json.Unmarshal(tc.Ctx.Input.RequestBody, &request)

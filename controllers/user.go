@@ -23,7 +23,7 @@ type UserController struct {
 func (u *UserController) Post() {
 	var id models.UserID
 	var user models.User
-	resp := CommResp{Code: -1}
+	resp := BaseResponse{Code: -1}
 
 	err := json.Unmarshal(u.Ctx.Input.RequestBody, &user)
 	if err != nil {
@@ -58,7 +58,7 @@ func (u *UserController) GetAll() {
 	filter.Grade, _ = strconv.Atoi(u.GetString("grade"))
 	filter.Index, _ = strconv.Atoi(u.GetString("index"))
 
-	u.Data["json"] = CommResp{
+	u.Data["json"] = BaseResponse{
 		Code: 0,
 		Msg:  msgSuccess,
 		Data: models.Um.GetAllUsers(&filter),
@@ -73,7 +73,7 @@ func (u *UserController) GetAll() {
 // @Failure 403 :uid is empty
 // @router /:uid [get]
 func (u *UserController) Get() {
-	resp := &CommResp{Code: -1}
+	resp := &BaseResponse{Code: -1}
 	tmp := u.GetString(":uid")
 	uid, err := strconv.ParseInt(tmp, 10, 64)
 	if err != nil {
@@ -102,7 +102,7 @@ Out:
 // @Failure 403 :uid is not int
 // @router /:uid [put]
 func (u *UserController) Put() {
-	resp := &CommResp{Code: -1}
+	resp := &BaseResponse{Code: -1}
 	tmp := u.GetString(":uid")
 	var user models.User
 	uid, err := strconv.ParseInt(tmp, 10, 64)
@@ -142,7 +142,7 @@ Out:
 // @Failure 403 uid is empty
 // @router /:uid [delete]
 func (u *UserController) Delete() {
-	resp := CommResp{Code: -1}
+	resp := BaseResponse{Code: -1}
 	tmp := u.GetString(":uid")
 	uid, err := strconv.ParseInt(tmp, 10, 64)
 	if err != nil {

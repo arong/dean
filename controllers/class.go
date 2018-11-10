@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"github.com/arong/dean/base"
 	"sort"
 	"strconv"
 
@@ -22,7 +23,7 @@ type ClassController struct {
 // @router / [post]
 func (c *ClassController) Post() {
 	request := models.Class{}
-	resp := CommResp{Code: -1}
+	resp := base.BaseResponse{Code: -1}
 	var id models.ClassID
 
 	logs.Trace("[ClassController::Post]", "request", string(c.Ctx.Input.RequestBody))
@@ -70,7 +71,7 @@ Out:
 // @router / [put]
 func (u *ClassController) Put() {
 	var class models.Class
-	resp := CommResp{Code: -1}
+	resp := BaseResponse{Code: -1}
 	err := json.Unmarshal(u.Ctx.Input.RequestBody, &class)
 	if err != nil {
 		logs.Debug("[ClassController::Put] invalid json input", "err", err)
@@ -101,7 +102,7 @@ Out:
 // @Failure 403 uid is empty
 // @router /:classID [delete]
 func (c *ClassController) Delete() {
-	resp := CommResp{Code: -1}
+	resp := BaseResponse{Code: -1}
 	classID, err := strconv.Atoi(c.GetString(":classID"))
 	if err != nil {
 		logs.Debug("[ClassController::Delete] invalid input param")
@@ -129,7 +130,7 @@ Out:
 // @Success 200 {object} models.ClassResp
 // @router /:classID [get]
 func (c *ClassController) Get() {
-	resp := CommResp{Code: -1}
+	resp := BaseResponse{Code: -1}
 	var data *models.ClassResp
 	var err error
 
@@ -158,7 +159,7 @@ Out:
 // @Success 200 {object} models.Teacher
 // @router / [get]
 func (c *ClassController) GetAll() {
-	resp := &CommResp{
+	resp := &BaseResponse{
 		Code: 0,
 		Msg:  msgSuccess,
 	}

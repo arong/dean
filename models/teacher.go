@@ -256,8 +256,8 @@ func (tm *TeacherManager) Filter(f *TeacherFilter) TeacherListResp {
 }
 
 type simpleTeacher struct {
-	ID UserID `json:"id"`
-	Name      string `json:"name"`
+	ID   UserID `json:"id"`
+	Name string `json:"name"`
 }
 
 type simpleTeacherList []simpleTeacher

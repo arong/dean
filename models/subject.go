@@ -3,18 +3,18 @@ package models
 import "sort"
 
 var Sm SubjectManager
+
 // SubjectManager manager all course subject
 type SubjectManager struct {
 	subject map[int]string
 }
 
 type SubjectInfo struct {
-	SubjectID   int `json:"subject_id"`
+	SubjectID   int    `json:"subject_id"`
 	SubjectName string `json:"subject_name"`
 }
 
 type SubjectList []*SubjectInfo
-
 
 func (tl SubjectList) Len() int {
 	return len(tl)

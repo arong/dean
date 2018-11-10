@@ -53,12 +53,12 @@ func (cl userList) Less(i, j int) bool {
 }
 
 type profile struct {
-	Age       int    `json:"age"`
-	Gender    int    `json:"gender"`
-	RealName  string `json:"real_name"`
-	Mobile    string `json:"mobile"`
-	Address   string `json:"address"`
-	Birthday  string `json:"birthday"`
+	Age      int    `json:"age"`
+	Gender   int    `json:"gender"`
+	RealName string `json:"real_name"`
+	Mobile   string `json:"mobile"`
+	Address  string `json:"address"`
+	Birthday string `json:"birthday"`
 }
 
 type UserID int64
@@ -97,7 +97,6 @@ func (um *userManager) AddUser(u *User) (UserID, error) {
 	um.nameMap[u.LoginName] = u
 	um.idMap[u.StudentID] = u
 
-	Ac.AddUser(u.LoginName, u.Password)
 	return u.StudentID, nil
 }
 

@@ -19,7 +19,7 @@ type ScoreController struct {
 // @Failure 403 :objectId is empty
 // @router /:teacherID [get]
 func (s *ScoreController) Get() {
-	resp := CommResp{Code: -1}
+	resp := BaseResponse{Code: -1}
 	var err error
 	var id int64
 	ret := &models.ScoreInfo{}

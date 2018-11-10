@@ -17,7 +17,7 @@ type SubjectController struct {
 // @Success 200 {object} models.User
 // @router / [get]
 func (s *SubjectController) GetAll() {
-	s.Data["json"] = CommResp{
+	s.Data["json"] = BaseResponse{
 		Code: 0,
 		Msg:  msgSuccess,
 		Data: models.Sm.GetAll(),

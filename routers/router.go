@@ -49,9 +49,9 @@ func init() {
 				&controllers.SubjectController{},
 			),
 		),
-		beego.NSNamespace("/login",
+		beego.NSNamespace("/auth",
 			beego.NSInclude(
-				&controllers.LoginController{},
+				&controllers.AuthController{},
 			),
 		),
 	)

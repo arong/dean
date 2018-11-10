@@ -1,10 +1,9 @@
 package main
 
 import (
-	"crypto/md5"
 	"encoding/json"
-	"fmt"
 	"github.com/arong/dean/auth"
+	"github.com/arong/dean/base"
 	"github.com/arong/dean/controllers"
 	"github.com/arong/dean/models"
 	_ "github.com/arong/dean/routers"
@@ -13,66 +12,36 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/astaxie/beego/plugins/cors"
 	"github.com/astaxie/beego/session"
-	"time"
 )
 
 var globalSessions *session.Manager
 
-func init() {
-	sessionConfig := &session.ManagerConfig{
-		CookieName:      "dean",
-		EnableSetCookie: true,
-		Gclifetime:      3600,
-		Maxlifetime:     3600,
-		Secure:          false,
-		CookieLifeTime:  2400,
-		ProviderConfig:  "./tmp",
-	}
-	globalSessions, _ = session.NewManager("memory", sessionConfig)
-	go globalSessions.GC()
-}
-
-type baseReq struct {
-	Token     string      `json:"token"`
-	Timestamp int64       `json:"timestamp"`
-	Check     string      `json:"check"`
-	Data      interface{} `json:"data"`
-}
-
-func (b baseReq) IsValid() bool {
-	md5str := fmt.Sprintf("%x", md5.Sum([]byte(b.Token+fmt.Sprintf("%d", b.Timestamp))))
-	if b.Check != md5str {
-		return false
-	}
-
-	if b.Timestamp+30 < time.Now().Unix() {
-		return false
-	}
-	return true
-}
-
 var FilterUser = func(ctx *context.Context) {
-	request := baseReq{}
+	request := base.BaseRequest{}
 
 	err := json.Unmarshal(ctx.Input.RequestBody, &request)
 	if err != nil {
 		logs.Debug("bad request found", ctx.Input.IP())
-		ctx.Output.JSON(controllers.CommResp{Code: -3, Msg: "bad request"}, false, true)
+		ctx.Output.JSON(controllers.BaseResponse{Code: -3, Msg: "bad request"}, false, true)
 		return
 	}
 
 	if !request.IsValid() {
-		ctx.Output.JSON(controllers.CommResp{Code: -3, Msg: "invalid request"}, false, true)
+		ctx.Output.JSON(controllers.BaseResponse{Code: -3, Msg: "invalid request"}, false, true)
 		return
 	}
 
 	if !auth.VerifyToken(request.Token) {
 		if ctx.Request.URL.Path != "/api/v1/dean/login/" {
-			ctx.Output.JSON(controllers.CommResp{Code: -2, Msg: "invalid token"}, false, true)
+			ctx.Output.JSON(controllers.BaseResponse{Code: -2, Msg: "invalid token"}, false, true)
 			return
 		}
 	}
 
+	//ctx.Input.
+	if ctx.Request.URL.Path == "/api/v1/dean/access/logout/" {
+		return
+	}
 	ctx.Input.RequestBody, _ = json.Marshal(request.Data)
 }
 

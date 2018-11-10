@@ -62,7 +62,7 @@ func (vr *voteRequest) Verify() error {
 // @router / [post]
 func (v *VoteController) Post() {
 	request := voteRequest{}
-	resp := CommResp{Code: -1}
+	resp := BaseResponse{Code: -1}
 
 	logs.Debug("[VoteController::Post]", "request", string(v.Ctx.Input.RequestBody))
 	err := json.Unmarshal(v.Ctx.Input.RequestBody, &request)
@@ -98,7 +98,7 @@ Out:
 // @Success 200 {object} models.ScoreInfo
 // @router /:voteCode [get]
 func (v *VoteController) Get() {
-	resp := CommResp{Code: -1}
+	resp := BaseResponse{Code: -1}
 	var err error
 	var filter *models.VoteCodeInfo
 	var data *models.ClassResp
@@ -142,7 +142,7 @@ Out:
 // @Failure 403 :objectId is empty
 // @router / [get]
 func (v *VoteController) GetAll() {
-	resp := &CommResp{}
+	resp := &BaseResponse{}
 	resp.Msg = msgSuccess
 	fmt.Println("fuck ")
 	obs := models.Vm.GetAll()

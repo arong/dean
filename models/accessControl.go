@@ -86,10 +86,6 @@ func (ac *accessControl) Login(req *LoginInfo) (string, error) {
 }
 
 func (ac *accessControl) Logout(token string) error {
+	delete(ac.tokenMap, token)
 	return nil
-}
-
-func (ac *accessControl) AddUser(name, password string) {
-}
-func (ac *accessControl) AddTeacher(name, password string) {
 }
