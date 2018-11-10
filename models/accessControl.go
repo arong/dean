@@ -3,8 +3,8 @@ package models
 import (
 	"github.com/astaxie/beego/logs"
 	"github.com/nbutton23/zxcvbn-go"
+	"github.com/nu7hatch/gouuid"
 	"github.com/pkg/errors"
-	"github.com/satori/go.uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -79,8 +79,9 @@ func (ac *accessControl) Login(req *LoginInfo) (string, error) {
 		return token, ErrPasswordError
 	}
 
-	token = uuid.NewV4().String()
-	ac.tokenMap[token] = l
+	tmp, err := uuid.NewV4()
+
+	ac.tokenMap[tmp.String()] = l
 
 	return token, nil
 }

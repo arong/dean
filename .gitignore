@@ -1,6 +1,7 @@
 # specific file
 routers/commentsRouter_.go
 routers/commentsRouter_controllers.go
+conf/app.conf
 
 # file type
 *.exe
