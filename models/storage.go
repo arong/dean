@@ -135,7 +135,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 	// load students
 	userMap := make(map[UserID]*User)
 	{
-		rows, err := ma.db.Query("SELECT iUserID, vUserName, vRegistNumber, eGender FROM tbuser WHERE eStatus = 1;")
+		rows, err := ma.db.Query("SELECT iUserID, vUserName, vRegistNumber, eGender FROM tbUser WHERE eStatus = 1;")
 		if err != nil {
 			return err
 		}
@@ -157,7 +157,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 	userPassMap := make(map[string]string)
 	teacherPassMap := make(map[string]string)
 	{
-		rows, err := ma.db.Query("SELECT iUserID, vPassword, eType FROM tbpassword;")
+		rows, err := ma.db.Query("SELECT iUserID, vPassword, eType FROM tbPassword;")
 		if err != nil {
 			return err
 		}
@@ -221,7 +221,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 // for teacher
 func (ma *mysqlAgent) InsertTeacher(t *Teacher) error {
 	// Prepare statement for inserting data
-	stmtIns, err := ma.db.Prepare("INSERT INTO `tbteacher` (`eGender`, `vName`, `vMobile`, `dtBirthday`, `vAddress`, `iPrimarySubjectID`) VALUES (?,?,?,?,?,?);")
+	stmtIns, err := ma.db.Prepare("INSERT INTO `tbTeacher` (`eGender`, `vName`, `vMobile`, `dtBirthday`, `vAddress`, `iPrimarySubjectID`) VALUES (?,?,?,?,?,?);")
 	if err != nil {
 		return err
 	}
@@ -237,7 +237,7 @@ func (ma *mysqlAgent) InsertTeacher(t *Teacher) error {
 }
 
 func (ma *mysqlAgent) UpdateTeacher(t *Teacher) error {
-	stmtIns, err := ma.db.Prepare("UPDATE tbteacher SET eGender=?,vName=?,vMobile=?,dtBirthday=?,iPrimarySubjectID=?, vAddress=? WHERE iTeacherID=?;")
+	stmtIns, err := ma.db.Prepare("UPDATE tbTeacher SET eGender=?,vName=?,vMobile=?,dtBirthday=?,iPrimarySubjectID=?, vAddress=? WHERE iTeacherID=?;")
 	if err != nil {
 		return err
 	}
@@ -251,7 +251,7 @@ func (ma *mysqlAgent) UpdateTeacher(t *Teacher) error {
 }
 
 func (ma *mysqlAgent) DeleteTeacher(teacherID UserID) error {
-	stmtIns, err := ma.db.Prepare("UPDATE tbteacher set eStatus=? WHERE iTeacherID=?;")
+	stmtIns, err := ma.db.Prepare("UPDATE tbTeacher set eStatus=? WHERE iTeacherID=?;")
 	if err != nil {
 		return err
 	}
