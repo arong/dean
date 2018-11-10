@@ -33,6 +33,21 @@ func (c *ClassController) Post() {
 		goto Out
 	}
 
+	if request.Grade <= 0 || request.Index <= 0 {
+		resp.Msg = "invalid grade or class"
+		logs.Debug("[ClassController::Post] invalid parameter")
+		goto Out
+	}
+
+	if request.MasterID > 0 {
+		// check masterID
+		if !models.Tm.CheckID(request.MasterID) {
+			logs.Debug("[ClassController::Post] invalid head teacher id")
+			resp.Msg = "invalid head teacher id"
+			goto Out
+		}
+	}
+
 	id, err = models.Cm.AddClass(&request)
 	if err != nil {
 		resp.Msg = err.Error()
@@ -65,7 +80,7 @@ func (u *ClassController) Put() {
 
 	err = models.Cm.ModifyClass(&class)
 	if err != nil {
-		logs.Debug("[lassController::Put] ModifyClass failed", "err", err)
+		logs.Debug("[ClassController::Put] ModifyClass failed", "err", err)
 		resp.Msg = err.Error()
 		goto Out
 	}
@@ -150,7 +165,7 @@ func (c *ClassController) GetAll() {
 	tmp := models.Cm.GetAll()
 	sort.Sort(tmp)
 
-	resp.Data = CommList{RecordCount: len(tmp), RecordList: tmp}
+	resp.Data = CommList{Total: len(tmp), List: tmp}
 	c.Data["json"] = resp
 	c.ServeJSON()
 }

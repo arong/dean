@@ -166,7 +166,7 @@ func (tm *TeacherManager) ModTeacher(t *Teacher) error {
 	return nil
 }
 
-func (tm *TeacherManager) DelTeacher(idList []UserID) ([]UserID, error ){
+func (tm *TeacherManager) DelTeacher(idList []UserID) ([]UserID, error) {
 	tm.mutex.Lock()
 	tm.mutex.Unlock()
 
@@ -220,7 +220,7 @@ func (tm *TeacherManager) GetTeacherList(ids []UserID) (TeacherList, error) {
 	return ret, nil
 }
 
-func (tm *TeacherManager) GetAll(f *TeacherFilter) TeacherListResp {
+func (tm *TeacherManager) Filter(f *TeacherFilter) TeacherListResp {
 	ret := TeacherList{}
 	total := 0
 	start := (f.Page - 1) * f.Size
@@ -255,6 +255,33 @@ func (tm *TeacherManager) GetAll(f *TeacherFilter) TeacherListResp {
 	return TeacherListResp{Total: total, RecordList: sub}
 }
 
+type simpleTeacher struct {
+	ID UserID `json:"id"`
+	Name      string `json:"name"`
+}
+
+type simpleTeacherList []simpleTeacher
+
+func (s simpleTeacherList) Len() int {
+	return len(s)
+}
+func (s simpleTeacherList) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s simpleTeacherList) Less(i, j int) bool {
+	return s[i].ID < s[j].ID
+}
+func (tm *TeacherManager) GetAll() TeacherListResp {
+	ret := simpleTeacherList{}
+	tm.mutex.Lock()
+	for _, v := range tm.idMap {
+		ret = append(ret, simpleTeacher{Name: v.RealName, ID: v.TeacherID})
+	}
+	tm.mutex.Unlock()
+	sort.Sort(ret)
+	return TeacherListResp{Total: len(ret), RecordList: ret}
+}
+
 func (tm *TeacherManager) FilterTeacher() (TeacherListResp, error) {
 	ret := TeacherListResp{}
 
@@ -278,4 +305,12 @@ func (tm *TeacherManager) CheckTeachers(ids []UserID) bool {
 		}
 	}
 	return true
+}
+
+func (tm *TeacherManager) CheckID(id UserID) bool {
+	tm.mutex.Lock()
+	defer tm.mutex.Unlock()
+
+	_, ok := tm.idMap[id]
+	return ok
 }

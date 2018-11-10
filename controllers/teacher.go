@@ -122,14 +122,14 @@ Out:
 	o.ServeJSON()
 }
 
-// @Title GetAll
+// @Title Filter
 // @Description get all objects
 // @Param	page		query 	string	true		"The username for login"
 // @Param	size		query 	string	true		"The password for login"
 // @Param	body		body 	models.TeacherFilter	true		"The object content"
 // @Success 200 {object} models.TeacherListResp
 // @router /filter [post]
-func (o *TeacherController) GetAll() {
+func (o *TeacherController) Filter() {
 	resp := &CommResp{}
 	request := models.TeacherFilter{}
 	err := json.Unmarshal(o.Ctx.Input.RequestBody, &request)
@@ -145,10 +145,20 @@ func (o *TeacherController) GetAll() {
 		goto Out
 	}
 
-	resp.Data = models.Tm.GetAll(&request)
+	resp.Data = models.Tm.Filter(&request)
 
 Out:
 	o.Data["json"] = resp
+	o.ServeJSON()
+}
+
+
+// @Title GetAll
+// @Description get all objects
+// @Success 200 {object} models.TeacherListResp
+// @router / [get]
+func (o *TeacherController) GetAll() {
+	o.Data["json"] = &CommResp{Msg:msgSuccess, Data:models.Tm.GetAll()}
 	o.ServeJSON()
 }
 

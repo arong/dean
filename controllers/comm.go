@@ -8,9 +8,14 @@ type CommResp struct {
 	Data interface{} `json:"data"`
 }
 
+type CommPage struct {
+	Page int `json:"page"`
+	Size int `json:"size"`
+}
+
 type CommList struct {
-	RecordCount int         `json:"record_count"`
-	RecordList  interface{} `json:"record_list"` //  intended for
+	Total int         `json:"total"`
+	List  interface{} `json:"list"`
 }
 
 const (

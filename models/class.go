@@ -3,7 +3,6 @@ package models
 import (
 	"errors"
 	"github.com/astaxie/beego/logs"
-	"strconv"
 	"sync"
 )
 
@@ -14,6 +13,19 @@ const (
 	prefix = "高"
 	suffix = "班"
 )
+
+var chineseNumberMap = map[int]string{
+	1:  "一",
+	2:  "二",
+	3:  "三",
+	4:  "四",
+	5:  "五",
+	6:  "六",
+	7:  "七",
+	8:  "八",
+	9:  "九",
+	10: "十",
+}
 
 var (
 	ErrClassNotExist = errors.New("class not exist")
@@ -28,9 +40,10 @@ type ClassID int
 // Class is the
 type Class struct {
 	Filter
-	ID         ClassID `json:"id"`
-	Name       string  `json:"name"`
-	TeacherIDs []UserID `json:"-"` // id
+	ID         ClassID  `json:"id"`
+	Name       string   `json:"name"`
+	MasterID   UserID   `json:"master_id"` // 班主任
+	TeacherIDs []UserID `json:"-"`         // id
 }
 
 type ClassResp struct {
@@ -101,7 +114,7 @@ func (cm *ClassManager) AddClass(c *Class) (ClassID, error) {
 	}
 
 	if c.Name == "" {
-		c.Name = prefix + strconv.Itoa(c.Grade) + "-" + strconv.Itoa(c.Index) + suffix
+		c.Name = prefix + chineseNumberMap[c.Grade] + chineseNumberMap[c.Index] + suffix
 	}
 
 	if !Tm.CheckTeachers(c.TeacherIDs) {
@@ -193,7 +206,7 @@ func (cm *ClassManager) DelClass(id ClassID) error {
 
 	err := Ma.DeleteClass(id)
 	if err != nil {
-		logs.Warn("[] database failed", "err", err)
+		logs.Warn("[DelClass] database failed", "err", err)
 		return err
 	}
 

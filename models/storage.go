@@ -79,7 +79,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 	// load class
 	classMap := make(map[ClassID]*Class)
 	{
-		rows, err := ma.db.Query("SELECT iClassID,iGrade,iIndex,vName FROM tbclass WHERE eStatus = 1;")
+		rows, err := ma.db.Query("SELECT iClassID,iGrade,iIndex,vName FROM tbClass WHERE eStatus = 1;")
 		if err != nil {
 			return err
 		}
@@ -103,7 +103,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 
 	// load class-teacher
 	{
-		rows, err := ma.db.Query("SELECT iClassID,iTeacherID FROM tbclassteacherrelation WHERE eStatus=1;")
+		rows, err := ma.db.Query("SELECT iClassID,iTeacherID FROM tbClassTeacherRelation WHERE eStatus=1;")
 		if err != nil {
 			return err
 		}
@@ -374,7 +374,7 @@ func (ma *mysqlAgent) InsertUser(u *User) error {
 
 	defer tx.Rollback()
 
-	stmt, err := tx.Prepare("INSERT INTO `tbuser`(`vRegistNumber`, `vUserName`, `eGender`) VALUES (?,?,?)")
+	stmt, err := tx.Prepare("INSERT INTO `tbUser`(`vRegistNumber`, `vUserName`, `eGender`) VALUES (?,?,?)")
 	if err != nil {
 		logs.Error("[mysqlAgent::InsertUser] failed", "err")
 		return err
