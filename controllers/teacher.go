@@ -152,13 +152,12 @@ Out:
 	o.ServeJSON()
 }
 
-
 // @Title GetAll
 // @Description get all objects
 // @Success 200 {object} models.TeacherListResp
 // @router / [get]
 func (o *TeacherController) GetAll() {
-	o.Data["json"] = &CommResp{Msg:msgSuccess, Data:models.Tm.GetAll()}
+	o.Data["json"] = &CommResp{Msg: msgSuccess, Data: models.Tm.GetAll()}
 	o.ServeJSON()
 }
 
@@ -177,7 +176,7 @@ type DeleteTeacherResp struct {
 // @Failure 403 uid is empty
 // @router /delete [post]
 func (tc *TeacherController) Delete() {
-	request:= DeleteTeacherReq{}
+	request := DeleteTeacherReq{}
 	resp := &CommResp{Code: -1}
 	ret := DeleteTeacherResp{}
 
@@ -201,56 +200,4 @@ func (tc *TeacherController) Delete() {
 Out:
 	tc.Data["json"] = resp
 	tc.ServeJSON()
-}
-
-// @Title Login
-// @Description Logs user into the system
-// @Param	username		query 	string	true		"The username for login"
-// @Param	password		query 	string	true		"The password for login"
-// @Success 200 {string} login success
-// @Failure 403 user not exist
-// @router /login [get]
-func (u *TeacherController) Login() {
-	resp := &CommResp{Code: -1}
-	username := u.GetString("username")
-	password := u.GetString("password")
-
-	token, err := models.Ac.Login(username, password, models.TypeTeacher)
-	if err != nil {
-		logs.Debug("[UserController::Login] login failed", username, err)
-		resp.Msg = err.Error()
-		goto Out
-	}
-	resp.Code = 0
-	resp.Msg = msgSuccess
-	resp.Data = token
-Out:
-	u.Data["json"] = resp
-	u.ServeJSON()
-}
-
-// @Title logout
-// @Description Logs out current logged in user session
-// @Param	token		query 	string	true		"The username for login"
-// @Success 200 {string} logout success
-// @router /logout [get]
-func (u *TeacherController) Logout() {
-	resp := &CommResp{Code: -1}
-	token := u.GetString("username")
-	if token == "" {
-		logs.Debug("no token")
-		resp.Msg = "invalid token"
-		goto Out
-	}
-
-	if models.Ac.Logout(token) != nil {
-		logs.Debug("logout failed")
-		goto Out
-	}
-	resp.Code = 0
-	resp.Msg = msgSuccess
-
-Out:
-	u.Data["json"] = resp
-	u.ServeJSON()
 }

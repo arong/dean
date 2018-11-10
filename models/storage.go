@@ -154,42 +154,25 @@ func (ma *mysqlAgent) LoadAllData() error {
 	Um.Init(userMap)
 
 	// init access control
-	userPassMap := make(map[string]string)
-	teacherPassMap := make(map[string]string)
+	loginMap := make(map[string]*loginInfo)
 	{
-		rows, err := ma.db.Query("SELECT iUserID, vPassword, eType FROM tbPassword;")
+		rows, err := ma.db.Query("SELECT iUserID,eType,vLoginName,vPassword FROM tbPassword;")
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 
 		for rows.Next() {
-			var id UserID
-			var password string
-			var eType int
-			err = rows.Scan(&id, &password, &eType)
+			tmp := loginInfo{}
+			err = rows.Scan(&tmp.ID, &tmp.UserType, &tmp.LoginName, &tmp.Password)
 			if err != nil {
 				logs.Error("scan failed", err)
 				continue
 			}
-			if eType == 1 {
-				if v, ok := userMap[id]; !ok {
-					continue
-				} else {
-					userPassMap[v.LoginName] = password
-				}
-			} else if eType == 2 {
-				if v, ok := teacherMap[id]; !ok {
-					continue
-				} else {
-					teacherPassMap[v.LoginName] = password
-				}
-			}
+			loginMap[tmp.LoginName] = &tmp
 		}
 	}
-
-	Ac.teacherMap = teacherPassMap
-	Ac.studentMap = userPassMap
+	Ac.loginMap = loginMap
 
 	// load all subject info
 	subjectMap := make(map[int]string)
@@ -213,7 +196,6 @@ func (ma *mysqlAgent) LoadAllData() error {
 	}
 	Sm.subject = subjectMap
 
-	logs.Info(userPassMap)
 	logs.Info("load data success")
 	return nil
 }

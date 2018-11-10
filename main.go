@@ -1,6 +1,10 @@
 package main
 
 import (
+	"crypto/md5"
+	"encoding/json"
+	"fmt"
+	"github.com/arong/dean/auth"
 	"github.com/arong/dean/controllers"
 	"github.com/arong/dean/models"
 	_ "github.com/arong/dean/routers"
@@ -9,6 +13,7 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/astaxie/beego/plugins/cors"
 	"github.com/astaxie/beego/session"
+	"time"
 )
 
 var globalSessions *session.Manager
@@ -27,16 +32,48 @@ func init() {
 	go globalSessions.GC()
 }
 
+type baseReq struct {
+	Token     string      `json:"token"`
+	Timestamp int64       `json:"timestamp"`
+	Check     string      `json:"check"`
+	Data      interface{} `json:"data"`
+}
+
+func (b baseReq) IsValid() bool {
+	md5str := fmt.Sprintf("%x", md5.Sum([]byte(b.Token+fmt.Sprintf("%d", b.Timestamp))))
+	if b.Check != md5str {
+		return false
+	}
+
+	if b.Timestamp+30 < time.Now().Unix() {
+		return false
+	}
+	return true
+}
+
 var FilterUser = func(ctx *context.Context) {
-	_, ok := ctx.Input.Session("uid").(int)
-	path := ctx.Request.URL.Path
-	if !ok && (path != "/api/v1/dean/user/login") && (path != "/api/v1/dean/teacher/login") {
-		// return a invalid
-		ctx.Output.JSON(controllers.CommResp{Code: -1, Msg: "invalid token"},
-			false,
-			true)
+	request := baseReq{}
+
+	err := json.Unmarshal(ctx.Input.RequestBody, &request)
+	if err != nil {
+		logs.Debug("bad request found", ctx.Input.IP())
+		ctx.Output.JSON(controllers.CommResp{Code: -3, Msg: "bad request"}, false, true)
 		return
 	}
+
+	if !request.IsValid() {
+		ctx.Output.JSON(controllers.CommResp{Code: -3, Msg: "invalid request"}, false, true)
+		return
+	}
+
+	if !auth.VerifyToken(request.Token) {
+		if ctx.Request.URL.Path != "/api/v1/dean/login/" {
+			ctx.Output.JSON(controllers.CommResp{Code: -2, Msg: "invalid token"}, false, true)
+			return
+		}
+	}
+
+	ctx.Input.RequestBody, _ = json.Marshal(request.Data)
 }
 
 func main() {
@@ -65,8 +102,8 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	//beego.InsertFilter("/*", beego.BeforeRouter, FilterUser)
+	beego.InsertFilter("/*", beego.BeforeRouter, FilterUser)
 
-	beego.Run(":2008")
+	beego.Run("127.0.0.1:2008")
 	logs.Info("server stopped.")
 }
