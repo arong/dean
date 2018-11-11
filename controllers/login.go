@@ -25,7 +25,7 @@ func (l *AuthController) Login() {
 
 	err := json.Unmarshal([]byte(l.Ctx.Input.RequestBody), &req)
 	if err != nil {
-		resp.Msg = "invalid data"
+		resp.Msg = "[Login] invalid request"
 		goto Out
 	}
 

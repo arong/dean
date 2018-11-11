@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/arong/dean/auth"
 	"github.com/arong/dean/base"
 	"github.com/arong/dean/controllers"
 	"github.com/arong/dean/models"
@@ -11,38 +10,68 @@ import (
 	"github.com/astaxie/beego/context"
 	"github.com/astaxie/beego/logs"
 	"github.com/astaxie/beego/plugins/cors"
-	"github.com/astaxie/beego/session"
+	"strconv"
 )
 
-var globalSessions *session.Manager
+//var globalSessions *session.Manager
 
 var FilterUser = func(ctx *context.Context) {
 	request := base.BaseRequest{}
+	var err error
 
-	err := json.Unmarshal(ctx.Input.RequestBody, &request)
-	if err != nil {
-		logs.Debug("bad request found", ctx.Input.IP())
-		ctx.Output.JSON(controllers.BaseResponse{Code: -3, Msg: "bad request"}, false, true)
-		return
-	}
+	if ctx.Input.IsPost() {
+		err := json.Unmarshal(ctx.Input.RequestBody, &request)
+		if err != nil {
+			logs.Debug("bad request found", ctx.Input.IP())
+			goto Out
+		}
 
-	if !request.IsValid() {
-		ctx.Output.JSON(controllers.BaseResponse{Code: -3, Msg: "invalid request"}, false, true)
-		return
-	}
+		if !request.IsValid() {
+			goto Out
+		}
+	} else if ctx.Input.IsGet() {
+		v := ctx.Input.Query("token")
+		if v == "" {
+			logs.Info("[] token not found")
+			goto Out
+		}
+		request.Token = v
 
-	if !auth.VerifyToken(request.Token) {
-		if ctx.Request.URL.Path != "/api/v1/dean/login/" {
-			ctx.Output.JSON(controllers.BaseResponse{Code: -2, Msg: "invalid token"}, false, true)
-			return
+		v = ctx.Input.Query("timestamp")
+		if v == "" {
+			logs.Info("[] timestamp not found")
+			goto Out
+		}
+		request.Timestamp, err = strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			goto Out
+		}
+
+		v = ctx.Input.Query("check")
+		if v == "" {
+			logs.Info("[] check sum not found")
+			goto Out
+		}
+		request.Check = v
+
+		if !request.IsValid() {
+			goto Out
 		}
 	}
 
-	//ctx.Input.
-	if ctx.Request.URL.Path == "/api/v1/dean/access/logout/" {
+	if !models.Ac.VerifyToken(request.Token) {
+		if ctx.Request.URL.Path != "/api/v1/dean/auth/login" {
+			goto Out
+		}
+	}
+
+	if ctx.Request.URL.Path == "/api/v1/dean/auth/logout" {
 		return
 	}
 	ctx.Input.RequestBody, _ = json.Marshal(request.Data)
+	return
+Out:
+	ctx.Output.JSON(controllers.BaseResponse{Code: -2, Msg: "invalid token"}, false, true)
 }
 
 func main() {

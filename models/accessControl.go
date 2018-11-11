@@ -6,6 +6,7 @@ import (
 	"github.com/nu7hatch/gouuid"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
+	"time"
 )
 
 var Ac accessControl
@@ -27,6 +28,9 @@ type accessControl struct {
 	tokenMap map[string]*loginInfo
 }
 
+func init() {
+	Ac.tokenMap = make(map[string]*loginInfo)
+}
 func (ac *accessControl) IsValidPassword(p string) error {
 	if len(p) < 8 {
 		return ErrTooShort
@@ -58,10 +62,12 @@ func (ac *accessControl) EncryptPassword(p string) (string, error) {
 }
 
 type loginInfo struct {
-	UserType  int
-	ID        UserID
-	LoginName string
-	Password  string
+	UserType     int
+	ID           UserID
+	LoginName    string
+	Password     string
+	ExpireTime   time.Time // expire time of the token
+	CurrentToken string
 }
 
 func (ac *accessControl) Login(req *LoginInfo) (string, error) {
@@ -69,21 +75,32 @@ func (ac *accessControl) Login(req *LoginInfo) (string, error) {
 
 	l, ok := ac.loginMap[req.LoginName]
 	if !ok {
-		logs.Debug("User not found", req.LoginName)
+		logs.Debug("[accessControl::Login] User not found", req.LoginName)
 		return token, errNotExist
 	}
 
 	err := bcrypt.CompareHashAndPassword([]byte(l.Password), []byte(req.Password))
 	if err != nil {
-		logs.Info("failed", err)
+		logs.Info("[accessControl::Login] failed", err)
 		return token, ErrPasswordError
 	}
 
-	tmp, err := uuid.NewV4()
+	if l.CurrentToken != "" {
+		logs.Debug("remove token", l.CurrentToken)
+		delete(ac.tokenMap, l.CurrentToken)
+	}
 
-	ac.tokenMap[tmp.String()] = l
+	tmp, err := uuid.NewV4()
+	token = tmp.String()
+	l.CurrentToken = token
+	ac.tokenMap[token] = l
 
 	return token, nil
+}
+
+func (ac *accessControl) VerifyToken(token string) bool {
+	_, ok := ac.tokenMap[token]
+	return ok
 }
 
 func (ac *accessControl) Logout(token string) error {
