@@ -1,7 +1,9 @@
 package models
 
 import (
+	"encoding/json"
 	"github.com/astaxie/beego/logs"
+	"github.com/dgraph-io/badger"
 	"github.com/nbutton23/zxcvbn-go"
 	"github.com/nu7hatch/gouuid"
 	"github.com/pkg/errors"
@@ -26,11 +28,46 @@ type LoginInfo struct {
 type accessControl struct {
 	loginMap map[string]*loginInfo
 	tokenMap map[string]*loginInfo
+	store    *badger.DB
 }
 
 func init() {
 	Ac.tokenMap = make(map[string]*loginInfo)
 }
+
+func (ac *accessControl) SetStore(db *badger.DB) {
+	ac.store = db
+}
+
+func (ac *accessControl) LoadToken() {
+	err := ac.store.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchSize = 10
+		it := txn.NewIterator(opts)
+		defer it.Close()
+		for it.Rewind(); it.Valid(); it.Next() {
+			item := it.Item()
+			k := item.Key()
+			loginInfo := loginInfo{}
+			err := item.Value(func(v []byte) error {
+				err := json.Unmarshal(v, &loginInfo)
+				//fmt.Printf("key=%s, value=%s\n", k, v)
+				return err
+			})
+			if err != nil {
+				logs.Warn("[] invalid login info")
+				return err
+			}
+			ac.tokenMap[string(k)] = &loginInfo
+		}
+		return nil
+	})
+
+	if err != nil {
+		logs.Error("[accessControl::LoadToken] load token error", "err", err)
+	}
+}
+
 func (ac *accessControl) IsValidPassword(p string) error {
 	if len(p) < 8 {
 		return ErrTooShort
@@ -42,7 +79,7 @@ func (ac *accessControl) IsValidPassword(p string) error {
 
 	strength := zxcvbn.PasswordStrength(p, nil)
 	if strength.Score < 2 {
-		logs.Debug("[] password too weak, score", strength.Score)
+		logs.Debug("[accessControl::IsValidPassword] password too weak, score", strength.Score)
 		return ErrTooWeak
 	}
 
@@ -53,11 +90,11 @@ func (ac *accessControl) EncryptPassword(p string) (string, error) {
 	encrypted := ""
 	hash, err := bcrypt.GenerateFromPassword([]byte(p), bcrypt.DefaultCost)
 	if err != nil {
-		logs.Warn("[] encrypt failed", err)
+		logs.Warn("[accessControl::EncryptPassword] encrypt failed", err)
 		return encrypted, err
 	}
 	encrypted = string(hash)
-	logs.Debug("[] hash", encrypted)
+	logs.Debug("[accessControl::EncryptPassword] hash", encrypted)
 	return encrypted, nil
 }
 
@@ -88,6 +125,7 @@ func (ac *accessControl) Login(req *LoginInfo) (string, error) {
 	if l.CurrentToken != "" {
 		logs.Debug("remove token", l.CurrentToken)
 		delete(ac.tokenMap, l.CurrentToken)
+		ac.removeToken(l.CurrentToken)
 	}
 
 	tmp, err := uuid.NewV4()
@@ -95,7 +133,40 @@ func (ac *accessControl) Login(req *LoginInfo) (string, error) {
 	l.CurrentToken = token
 	ac.tokenMap[token] = l
 
+	// 保存token
+	ac.storeToken(l)
+
 	return token, nil
+}
+
+func (ac *accessControl) storeToken(l *loginInfo) {
+	buffer, err := json.Marshal(l)
+	if err != nil {
+		logs.Error("[accessControl::storeToken] fatal error", err)
+	}
+
+	err = ac.store.Update(func(txn *badger.Txn) error {
+		err := txn.Set([]byte(l.CurrentToken), buffer)
+		return err
+	})
+
+	if err != nil {
+		logs.Error("[accessControl::storeToken] failed to set value: %v", err)
+		return
+	}
+	logs.Info("[accessControl::storeToken] store token success")
+}
+
+func (ac *accessControl) removeToken(token string) {
+	err := ac.store.Update(func(txn *badger.Txn) error {
+		err := txn.Delete([]byte(token))
+		return err
+	})
+
+	if err != nil {
+		logs.Error("[accessControl::removeToken] failed to set value: %v", err)
+		return
+	}
 }
 
 func (ac *accessControl) VerifyToken(token string) bool {

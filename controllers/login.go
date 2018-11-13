@@ -15,7 +15,7 @@ type AuthController struct {
 
 // @Title Login
 // @Description Logs user into the system
-// @Success 200 {string} login success
+// @Success 200 {object} models.BaseResponse
 // @Failure 403 user not exist
 // @router /login [post]
 func (l *AuthController) Login() {
@@ -25,7 +25,7 @@ func (l *AuthController) Login() {
 
 	err := json.Unmarshal([]byte(l.Ctx.Input.RequestBody), &req)
 	if err != nil {
-		resp.Msg = "[Login] invalid request"
+		resp.Msg = "[UserController::Login] invalid request"
 		goto Out
 	}
 
@@ -35,10 +35,11 @@ func (l *AuthController) Login() {
 		resp.Msg = err.Error()
 		goto Out
 	}
-	l.SetSession("token", token)
 	resp.Code = 0
 	resp.Msg = msgSuccess
 	resp.Data = token
+	logs.Info("[AuthController::Login] login success", req.LoginName, resp)
+
 Out:
 	l.Data["json"] = resp
 	l.ServeJSON()
@@ -55,6 +56,7 @@ func (l *AuthController) Logout() {
 
 	err := json.Unmarshal([]byte(l.Ctx.Input.RequestBody), &req)
 	if err != nil {
+		logs.Debug("[UserController::Login] invalid data")
 		resp.Msg = "invalid data"
 		goto Out
 	}

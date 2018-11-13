@@ -17,8 +17,8 @@ type TeacherController struct {
 // @Description create object
 // @Param	body		body 	models.Teacher	true		"The object content"
 // @Success 200 {string} models.Teacher.TeacherID
-// @router / [post]
-func (o *TeacherController) Post() {
+// @router /add [post]
+func (o *TeacherController) Add() {
 	request := models.Teacher{}
 	resp := BaseResponse{Code: -1}
 
@@ -44,35 +44,28 @@ Out:
 
 // @Title Update
 // @Description update the user
-// @Param	uid		path 	string	true		"The uid you want to update"
-// @Param	body		body 	models.Teacher	true		"body for user content"
+// @Param	body		body 	models.Teacher	true		"teacher info"
 // @Success 200 {object} models.User
 // @Failure 403 :uid is not int
-// @router /:uid [put]
-func (u *TeacherController) Put() {
+// @router /modify [post]
+func (u *TeacherController) Modify() {
 	resp := &BaseResponse{Code: -1}
-	tmp := u.GetString(":uid")
-	var teacher models.Teacher
-	uid, err := strconv.ParseInt(tmp, 10, 64)
-	if err != nil {
-		logs.Debug("[TeacherController::Put] parse uid failed")
-		goto Out
-	}
+	var request models.Teacher
+	var err error
 
-	if uid == 0 {
-		logs.Info("[TeacherController::Put] invalid teacher id")
-		goto Out
-	}
-
-	err = json.Unmarshal(u.Ctx.Input.RequestBody, &teacher)
+	err = json.Unmarshal(u.Ctx.Input.RequestBody, &request)
 	if err != nil {
 		logs.Info("[TeacherController::Put] unmarshal failed", "err", err)
 		resp.Msg = msgInvalidJSON
 		goto Out
 	}
 
-	teacher.TeacherID = models.UserID(uid)
-	err = models.Tm.ModTeacher(&teacher)
+	if request.TeacherID == 0 {
+		logs.Info("[TeacherController::Put] invalid teacher id")
+		goto Out
+	}
+
+	err = models.Tm.ModTeacher(&request)
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out
@@ -86,7 +79,7 @@ Out:
 }
 
 // @Title Get
-// @Description find object by objectid
+// @Description find object by teacherID
 // @Param	teacherID		path 	string	true		"the teacherID you want to get"
 // @Success 200 {object}	models.Teacher
 // @Failure 403 :teacherID is empty

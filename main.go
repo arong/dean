@@ -10,19 +10,21 @@ import (
 	"github.com/astaxie/beego/context"
 	"github.com/astaxie/beego/logs"
 	"github.com/astaxie/beego/plugins/cors"
+	"github.com/dgraph-io/badger"
+	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 )
 
-//var globalSessions *session.Manager
-
-var FilterUser = func(ctx *context.Context) {
+var filterUser = func(ctx *context.Context) {
 	request := base.BaseRequest{}
 	var err error
 
 	if ctx.Input.IsPost() {
 		err := json.Unmarshal(ctx.Input.RequestBody, &request)
 		if err != nil {
-			logs.Debug("bad request found", ctx.Input.IP())
+			logs.Debug("[filterUser] bad request found", ctx.Input.IP())
 			goto Out
 		}
 
@@ -32,14 +34,14 @@ var FilterUser = func(ctx *context.Context) {
 	} else if ctx.Input.IsGet() {
 		v := ctx.Input.Query("token")
 		if v == "" {
-			logs.Info("[] token not found")
+			logs.Info("[filterUser] token not found")
 			goto Out
 		}
 		request.Token = v
 
 		v = ctx.Input.Query("timestamp")
 		if v == "" {
-			logs.Info("[] timestamp not found")
+			logs.Info("[filterUser] timestamp not found")
 			goto Out
 		}
 		request.Timestamp, err = strconv.ParseInt(v, 10, 64)
@@ -49,7 +51,7 @@ var FilterUser = func(ctx *context.Context) {
 
 		v = ctx.Input.Query("check")
 		if v == "" {
-			logs.Info("[] check sum not found")
+			logs.Info("[filterUser] check sum not found")
 			goto Out
 		}
 		request.Check = v
@@ -74,7 +76,22 @@ Out:
 	ctx.Output.JSON(controllers.BaseResponse{Code: -2, Msg: "invalid token"}, false, true)
 }
 
+func signalHandler(db *badger.DB) {
+	c := make(chan os.Signal)
+	signal.Notify(c)
+	for {
+		s := <-c
+		if s == syscall.SIGINT || s == syscall.SIGQUIT || s == syscall.SIGTERM {
+			logs.Info("[signalHandler] quit for signal", s)
+			db.Close()
+			os.Exit(1)
+		}
+	}
+}
+
 func main() {
+
+	// read config
 	conf := models.DBConfig{}
 	err := conf.GetConf()
 	if err != nil {
@@ -82,9 +99,29 @@ func main() {
 		return
 	}
 
+	// config log
+	logs.SetLogger(logs.AdapterFile, `{"filename":"dean.log","level":7,"maxlines":0,"maxsize":0,"daily":true,"maxdays":10}`)
+
+	// init modules
 	models.Init(&conf)
 
-	logs.SetLogger(logs.AdapterFile, `{"filename":"dean.log","level":7,"maxlines":0,"maxsize":0,"daily":true,"maxdays":10}`)
+	// start local storage
+	opts := badger.DefaultOptions
+	opts.Dir = "./badger"
+	opts.ValueDir = "./badger"
+	db, err := badger.Open(opts)
+	if err != nil {
+		logs.Error("[main] badger start failed", err)
+		return
+	}
+	defer db.Close()
+
+	// register signal handler
+	go signalHandler(db)
+
+	models.Ac.SetStore(db)
+
+	models.Ac.LoadToken()
 
 	logs.Info("server start...")
 	if beego.BConfig.RunMode == "dev" {
@@ -100,7 +137,7 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	beego.InsertFilter("/*", beego.BeforeRouter, FilterUser)
+	beego.InsertFilter("/*", beego.BeforeRouter, filterUser)
 
 	beego.Run("127.0.0.1:2008")
 	logs.Info("server stopped.")

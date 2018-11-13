@@ -20,30 +20,30 @@ type ClassController struct {
 // @Description create object
 // @Param	body		body 	models.Teacher	true		"The object content"
 // @Success 200 {string} models.Teacher.ID
-// @router / [post]
-func (c *ClassController) Post() {
+// @router /add [post]
+func (c *ClassController) Add() {
 	request := models.Class{}
 	resp := base.BaseResponse{Code: -1}
 	var id models.ClassID
 
-	logs.Trace("[ClassController::Post]", "request", string(c.Ctx.Input.RequestBody))
+	logs.Trace("[ClassController::Add]", "request", string(c.Ctx.Input.RequestBody))
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &request)
 	if err != nil {
 		resp.Msg = msgInvalidJSON
-		logs.Debug("[ClassController::Post] invalid json")
+		logs.Debug("[ClassController::Add] invalid json")
 		goto Out
 	}
 
 	if request.Grade <= 0 || request.Index <= 0 {
 		resp.Msg = "invalid grade or class"
-		logs.Debug("[ClassController::Post] invalid parameter")
+		logs.Debug("[ClassController::Add] invalid parameter")
 		goto Out
 	}
 
 	if request.MasterID > 0 {
 		// check masterID
 		if !models.Tm.CheckID(request.MasterID) {
-			logs.Debug("[ClassController::Post] invalid head teacher id")
+			logs.Debug("[ClassController::Add] invalid head teacher id")
 			resp.Msg = "invalid head teacher id"
 			goto Out
 		}
@@ -52,7 +52,7 @@ func (c *ClassController) Post() {
 	id, err = models.Cm.AddClass(&request)
 	if err != nil {
 		resp.Msg = err.Error()
-		logs.Debug("[ClassController::Post] AddClass failed", "err", err)
+		logs.Debug("[ClassController::Add] AddClass failed", "err", err)
 		goto Out
 	}
 
@@ -68,20 +68,20 @@ Out:
 // @Description update the user
 // @Param	body		body 	models.User	true		"body for user content"
 // @Success 200 {object} models.User
-// @router / [put]
-func (u *ClassController) Put() {
+// @router /update [post]
+func (u *ClassController) Update() {
 	var class models.Class
 	resp := BaseResponse{Code: -1}
 	err := json.Unmarshal(u.Ctx.Input.RequestBody, &class)
 	if err != nil {
-		logs.Debug("[ClassController::Put] invalid json input", "err", err)
+		logs.Debug("[ClassController::Update] invalid json input", "err", err)
 		resp.Msg = msgInvalidJSON
 		goto Out
 	}
 
 	err = models.Cm.ModifyClass(&class)
 	if err != nil {
-		logs.Debug("[ClassController::Put] ModifyClass failed", "err", err)
+		logs.Debug("[ClassController::Update] ModifyClass failed", "err", err)
 		resp.Msg = err.Error()
 		goto Out
 	}
@@ -100,7 +100,7 @@ Out:
 // @Param	classID		path 	string	true		"The uid you want to delete"
 // @Success 200 {string} delete success!
 // @Failure 403 uid is empty
-// @router /:classID [delete]
+// @router /delete [post]
 func (c *ClassController) Delete() {
 	resp := BaseResponse{Code: -1}
 	classID, err := strconv.Atoi(c.GetString(":classID"))
@@ -128,8 +128,8 @@ Out:
 // @Title Get
 // @Description create object
 // @Success 200 {object} models.ClassResp
-// @router /:classID [get]
-func (c *ClassController) Get() {
+// @router /info [get]
+func (c *ClassController) Info() {
 	resp := BaseResponse{Code: -1}
 	var data *models.ClassResp
 	var err error
@@ -157,7 +157,7 @@ Out:
 // @Title GetAll
 // @Description get all objects
 // @Success 200 {object} models.Teacher
-// @router / [get]
+// @router /list [get]
 func (c *ClassController) GetAll() {
 	resp := &BaseResponse{
 		Code: 0,

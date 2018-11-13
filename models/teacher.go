@@ -6,6 +6,7 @@ import (
 	"os"
 	"sort"
 	"sync"
+	"time"
 )
 
 const (
@@ -46,6 +47,14 @@ func (t *Teacher) IsValid() error {
 		return errors.New("invalid gender")
 	}
 
+	if t.Birthday == "" {
+		return errors.New("empty birthday")
+	}
+
+	_, err := time.Parse("2006-01-02", t.Birthday)
+	if err != nil {
+		return errors.New("invalid birthday")
+	}
 	return nil
 }
 

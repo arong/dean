@@ -10,7 +10,7 @@ import (
 )
 
 // Operations about Users
-type UserController struct {
+type StudentController struct {
 	beego.Controller
 }
 
@@ -19,8 +19,8 @@ type UserController struct {
 // @Param	body		body 	models.User	true		"body for user content"
 // @Success 200 {int} models.User.StudentID
 // @Failure 403 body is empty
-// @router / [post]
-func (u *UserController) Post() {
+// @router /add [post]
+func (u *StudentController) Add() {
 	var id models.UserID
 	var user models.User
 	resp := BaseResponse{Code: -1}
@@ -53,7 +53,7 @@ Out:
 // @Param	index		query 	string	true		"The number of class"
 // @Success 200 {object} models.User
 // @router / [get]
-func (u *UserController) GetAll() {
+func (u *StudentController) GetAll() {
 	filter := models.Filter{}
 	filter.Grade, _ = strconv.Atoi(u.GetString("grade"))
 	filter.Index, _ = strconv.Atoi(u.GetString("index"))
@@ -71,8 +71,8 @@ func (u *UserController) GetAll() {
 // @Param	uid		path 	string	true		"The key for static block"
 // @Success 200 {object} models.User
 // @Failure 403 :uid is empty
-// @router /:uid [get]
-func (u *UserController) Get() {
+// @router /info [get]
+func (u *StudentController) GetInfo() {
 	resp := &BaseResponse{Code: -1}
 	tmp := u.GetString(":uid")
 	uid, err := strconv.ParseInt(tmp, 10, 64)
@@ -100,19 +100,19 @@ Out:
 // @Param	body		body 	models.User	true		"body for user content"
 // @Success 200 {object} models.User
 // @Failure 403 :uid is not int
-// @router /:uid [put]
-func (u *UserController) Put() {
+// @router /update [post]
+func (u *StudentController) Update() {
 	resp := &BaseResponse{Code: -1}
 	tmp := u.GetString(":uid")
 	var user models.User
 	uid, err := strconv.ParseInt(tmp, 10, 64)
 	if err != nil {
-		logs.Debug("[] parse uid failed")
+		logs.Debug("[StudentController::Update] parse uid failed")
 		goto Out
 	}
 
 	if uid == 0 {
-		logs.Debug("invalid uid")
+		logs.Debug("[StudentController::Update] invalid uid")
 		goto Out
 	}
 
@@ -140,8 +140,8 @@ Out:
 // @Param	uid		path 	string	true		"The uid you want to delete"
 // @Success 200 {string} delete success!
 // @Failure 403 uid is empty
-// @router /:uid [delete]
-func (u *UserController) Delete() {
+// @router /delete [post]
+func (u *StudentController) Delete() {
 	resp := BaseResponse{Code: -1}
 	tmp := u.GetString(":uid")
 	uid, err := strconv.ParseInt(tmp, 10, 64)
