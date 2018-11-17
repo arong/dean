@@ -121,11 +121,6 @@ func (ma *mysqlAgent) LoadAllData() error {
 				logs.Trace("data broken", "teacherID", teacherID)
 				continue
 			}
-
-			// add to class map
-			if v, ok := classMap[classID]; ok {
-				v.TeacherIDs = append(v.TeacherIDs, teacherID)
-			}
 		}
 	}
 

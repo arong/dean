@@ -139,6 +139,9 @@ func main() {
 
 	beego.InsertFilter("/*", beego.BeforeRouter, filterUser)
 
+	// 开启平滑升级
+	beego.BConfig.Listen.Graceful = true
+
 	beego.Run("127.0.0.1:2008")
 	logs.Info("server stopped.")
 }

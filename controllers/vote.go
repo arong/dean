@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
-	"github.com/pkg/errors"
 )
 
 // Operations about object
@@ -21,36 +20,36 @@ type voteRequest struct {
 }
 
 func (vr *voteRequest) Verify() error {
-	filter, err := models.Decode(vr.VoteCode)
-	if err != nil {
-		logs.Warn("[voteRequest::Verify] Decode failed")
-		return err
-	}
-
-	classResp, err := models.Cm.GetInfo(filter.GetID())
-	if err != nil {
-		logs.Debug("[voteRequest::Verify] class not found")
-		return err
-	}
+	//filter, err := models.Decode(vr.VoteCode)
+	//if err != nil {
+	//	logs.Warn("[voteRequest::Verify] Decode failed")
+	//	return err
+	//}
+	//
+	//classResp, err := models.Cm.GetInfo(filter.GetID())
+	//if err != nil {
+	//	logs.Debug("[voteRequest::Verify] class not found")
+	//	return err
+	//}
 
 	// check validity
-	currMap := make(map[models.UserID]bool)
-	for _, v := range classResp.TeacherIDs {
-		currMap[v] = true
-	}
+	//currMap := make(map[models.UserID]bool)
+	//for _, v := range classResp.TeacherIDs {
+	//	currMap[v] = true
+	//}
 
 	// check extra
-	for _, v := range vr.Scores {
-		if currMap[v.TeacherID] == false {
-			return errors.New("access denied")
-		}
-		delete(currMap, v.TeacherID)
-	}
-
-	// check lack
-	if len(currMap) > 0 {
-		return errors.New("all teacher must be voted")
-	}
+	//for _, v := range vr.Scores {
+	//	if currMap[v.TeacherID] == false {
+	//		return errors.New("access denied")
+	//	}
+	//	delete(currMap, v.TeacherID)
+	//}
+	//
+	//check lack
+	//if len(currMap) > 0 {
+	//	return errors.New("all teacher must be voted")
+	//}
 	return nil
 }
 

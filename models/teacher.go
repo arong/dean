@@ -34,7 +34,6 @@ func Init(conf *DBConfig) {
 type Teacher struct {
 	TeacherID UserID `json:"teacher_id"`
 	SubjectID int    `json:"subject_id"`
-	LoginInfo
 	profile
 }
 
@@ -110,7 +109,7 @@ func (tm *TeacherManager) Init(data map[UserID]*Teacher) {
 	} else {
 		tm.idMap = data
 		for _, v := range data {
-			tm.nameMap[v.LoginName] = v
+			tm.nameMap[v.RealName] = v
 		}
 	}
 }
@@ -120,7 +119,7 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 		return ErrInvalidParam
 	}
 
-	if _, ok := tm.nameMap[t.LoginName]; ok {
+	if _, ok := tm.nameMap[t.RealName]; ok {
 		return ErrNameExist
 	}
 
@@ -139,7 +138,7 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 	// add to map
 	{
 		tm.mutex.Lock()
-		tm.nameMap[t.LoginName] = t
+		tm.nameMap[t.RealName] = t
 		tm.idMap[t.TeacherID] = t
 		tm.mutex.Unlock()
 	}
@@ -168,7 +167,7 @@ func (tm *TeacherManager) ModTeacher(t *Teacher) error {
 
 	{
 		tm.mutex.Lock()
-		tm.nameMap[t.LoginName] = t
+		tm.nameMap[t.RealName] = t
 		tm.idMap[t.TeacherID] = t
 		tm.mutex.Unlock()
 	}
@@ -197,7 +196,7 @@ func (tm *TeacherManager) DelTeacher(idList []UserID) ([]UserID, error) {
 		}
 
 		// remove from map
-		delete(tm.nameMap, val.LoginName)
+		delete(tm.nameMap, val.RealName)
 		delete(tm.idMap, val.TeacherID)
 	}
 	return failed, nil
@@ -310,6 +309,19 @@ func (tm *TeacherManager) CheckTeachers(ids []UserID) bool {
 
 	for _, v := range ids {
 		if _, ok := tm.idMap[v]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func (tm *TeacherManager) CheckInstructorList(list InstructorList) bool {
+	for _, v := range list {
+		if t, ok := tm.idMap[v.TeacherID]; ok {
+			if t.SubjectID != v.SubjectID {
+				return false
+			}
+		} else {
 			return false
 		}
 	}

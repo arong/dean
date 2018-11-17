@@ -180,6 +180,12 @@ func (tc *TeacherController) Delete() {
 		goto Out
 	}
 
+	if len(request.IDList) == 0 {
+		resp.Msg = "invalid request"
+		logs.Debug("[TeacherController::Delete] invalid request")
+		goto Out
+	}
+
 	ret.FailedList, err = models.Tm.DelTeacher(request.IDList)
 	if err != nil {
 		logs.Debug("[TeacherController::Delete] failed", "err", err)

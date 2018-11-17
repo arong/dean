@@ -2,9 +2,10 @@ package controllers
 
 import (
 	"encoding/json"
-	"github.com/arong/dean/base"
 	"sort"
 	"strconv"
+
+	"github.com/arong/dean/base"
 
 	"github.com/arong/dean/models"
 	"github.com/astaxie/beego"
@@ -45,6 +46,15 @@ func (c *ClassController) Add() {
 		if !models.Tm.CheckID(request.MasterID) {
 			logs.Debug("[ClassController::Add] invalid head teacher id")
 			resp.Msg = "invalid head teacher id"
+			goto Out
+		}
+	}
+
+	if len(request.InstructorList) > 0 {
+		ok := models.Tm.CheckInstructorList(request.InstructorList)
+		if !ok {
+			logs.Debug("[ClassController::Add] invalid instructor list")
+			resp.Msg = "invalid instructor list"
 			goto Out
 		}
 	}
@@ -95,6 +105,10 @@ Out:
 	u.ServeJSON()
 }
 
+type delRequest struct {
+	IDList models.ClassIDList `json:"id_list"`
+}
+
 // @Title Delete
 // @Description delete the user
 // @Param	classID		path 	string	true		"The uid you want to delete"
@@ -102,24 +116,31 @@ Out:
 // @Failure 403 uid is empty
 // @router /delete [post]
 func (c *ClassController) Delete() {
+	request := delRequest{}
 	resp := BaseResponse{Code: -1}
-	classID, err := strconv.Atoi(c.GetString(":classID"))
+	ret := models.ClassIDList{}
+
+	err := json.Unmarshal(c.Ctx.Input.RequestBody, &request)
 	if err != nil {
-		logs.Debug("[ClassController::Delete] invalid input param")
-		resp.Msg = msgInvalidParam
+		logs.Debug("[ClassController::Update] invalid json input", "err", err)
+		resp.Msg = msgInvalidJSON
 		goto Out
 	}
 
-	err = models.Cm.DelClass(models.ClassID(classID))
+	ret, err = models.Cm.DelClass(request.IDList)
 	if err != nil {
 		logs.Debug("[ClassController::Delete] failed", "err", err)
 		resp.Msg = err.Error()
 		goto Out
 	}
 
+	if len(ret) > 0 {
+		resp.Code = -3
+		resp.Msg = "partial failed"
+		goto Out
+	}
 	resp.Code = 0
 	resp.Msg = msgSuccess
-
 Out:
 	c.Data["json"] = resp
 	c.ServeJSON()

@@ -2,6 +2,7 @@ package models
 
 import "sort"
 
+// Sm is global subject manager
 var Sm SubjectManager
 
 // SubjectManager manager all course subject
@@ -28,6 +29,7 @@ func (tl SubjectList) Less(i, j int) bool {
 	return tl[i].SubjectID < tl[j].SubjectID
 }
 
+// GetAll return all subject id list in current manager
 func (s *SubjectManager) GetAll() SubjectList {
 	ret := SubjectList{}
 	for k, v := range s.subject {
@@ -36,4 +38,14 @@ func (s *SubjectManager) GetAll() SubjectList {
 
 	sort.Sort(ret)
 	return ret
+}
+
+// CheckSubjectList check to see if all id in input list exist
+func (s *SubjectManager) CheckSubjectList(list []int) bool {
+	for _, v := range list {
+		if _, ok := s.subject[v]; !ok {
+			return false
+		}
+	}
+	return true
 }

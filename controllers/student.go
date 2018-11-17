@@ -52,7 +52,7 @@ Out:
 // @Param	grade		query 	string	true		"The grade of class"
 // @Param	index		query 	string	true		"The number of class"
 // @Success 200 {object} models.User
-// @router / [get]
+// @router /list [get]
 func (u *StudentController) GetAll() {
 	filter := models.Filter{}
 	filter.Grade, _ = strconv.Atoi(u.GetString("grade"))

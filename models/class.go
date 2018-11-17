@@ -2,8 +2,9 @@ package models
 
 import (
 	"errors"
-	"github.com/astaxie/beego/logs"
 	"sync"
+
+	"github.com/astaxie/beego/logs"
 )
 
 // global manager
@@ -28,59 +29,9 @@ var chineseNumberMap = map[int]string{
 }
 
 var (
+	// ErrClassNotExist class not exist
 	ErrClassNotExist = errors.New("class not exist")
 )
-
-// of size two byte
-// +--------+-------+
-// | Grade  | index |
-// +--------+-------+
-type ClassID int
-
-// Class is the
-type Class struct {
-	Filter
-	ID         ClassID  `json:"id"`
-	Name       string   `json:"name"`
-	MasterID   UserID   `json:"master_id"` // 班主任
-	TeacherIDs []UserID `json:"-"`         // id
-}
-
-type ClassResp struct {
-	Class
-	Teachers TeacherList // 详情
-}
-type ClassList []*Class
-
-func (cl ClassList) Len() int {
-	return len(cl)
-}
-
-func (cl ClassList) Swap(i, j int) {
-	cl[i], cl[j] = cl[j], cl[i]
-}
-
-func (cl ClassList) Less(i, j int) bool {
-	if cl[i].Grade < cl[j].Grade {
-		return true
-	} else if cl[i].Grade > cl[j].Grade {
-		return false
-	} else {
-		return cl[i].Index < cl[j].Index
-	}
-}
-
-type Filter struct {
-	Grade int `json:"grade"` // 年级
-	Index int `json:"index"` // 班级
-}
-
-func (f *Filter) GetID() ClassID {
-	if f == nil {
-		return 0
-	}
-	return ClassID(((f.Grade & 0xf) << 8) | f.Index&0x0f)
-}
 
 type ClassManager struct {
 	idMap map[ClassID]*Class
@@ -102,7 +53,6 @@ func (cm *ClassManager) Init(data map[ClassID]*Class) {
 
 func (cm *ClassManager) AddClass(c *Class) (ClassID, error) {
 	var ret ClassID
-	c.ID = c.GetID()
 
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
@@ -115,10 +65,6 @@ func (cm *ClassManager) AddClass(c *Class) (ClassID, error) {
 
 	if c.Name == "" {
 		c.Name = prefix + chineseNumberMap[c.Grade] + chineseNumberMap[c.Index] + suffix
-	}
-
-	if !Tm.CheckTeachers(c.TeacherIDs) {
-		return ret, errNotExist
 	}
 
 	err := Ma.InsertClass(c)
@@ -151,68 +97,30 @@ func (cm *ClassManager) ModifyClass(c *Class) error {
 			return err
 		}
 	}
-
-	// 检查教师是否有增减
-	currMap := make(map[UserID]bool)
-	for _, v := range curr.TeacherIDs {
-		currMap[v] = true
-	}
-
-	newMap := make(map[UserID]bool)
-	for _, v := range c.TeacherIDs {
-		if _, ok := currMap[v]; ok {
-			delete(currMap, v)
-			continue
-		}
-		newMap[v] = true
-	}
-
-	if len(currMap) > 0 {
-		addList := make([]UserID, len(newMap))
-		for k, _ := range newMap {
-			addList = append(addList, k)
-		}
-
-		err := Ma.AttachTeacher(c.ID, addList)
-		if err != nil {
-			logs.Warn("database error")
-			return err
-		}
-	}
-
-	if len(currMap) > 0 {
-		removeList := make([]UserID, len(currMap))
-		for k, _ := range currMap {
-			removeList = append(removeList, k)
-		}
-
-		err := Ma.DetachTeacher(c.ID, removeList)
-		if err != nil {
-			logs.Warn("database error")
-			return err
-		}
-	}
 	return nil
 }
 
-func (cm *ClassManager) DelClass(id ClassID) error {
+func (cm *ClassManager) DelClass(list ClassIDList) (ClassIDList, error) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
+	failedList := ClassIDList{}
 
-	_, ok := cm.idMap[id]
-	if !ok {
-		return ErrClassNotExist
+	for _, id := range list {
+		_, ok := cm.idMap[id]
+		if !ok {
+			failedList = append(failedList, id)
+			continue
+		}
+
+		err := Ma.DeleteClass(id)
+		if err != nil {
+			logs.Warn("[DelClass] database failed", "err", err)
+			failedList = append(failedList, id)
+		}
+		delete(cm.idMap, id)
 	}
 
-	err := Ma.DeleteClass(id)
-	if err != nil {
-		logs.Warn("[DelClass] database failed", "err", err)
-		return err
-	}
-
-	delete(cm.idMap, id)
-
-	return nil
+	return failedList, nil
 }
 
 func (cm *ClassManager) GetAll() ClassList {
@@ -237,7 +145,7 @@ func (cm *ClassManager) GetInfo(id ClassID) (*ClassResp, error) {
 	}
 
 	ret.Class = *val
-	ret.Teachers, err = Tm.GetTeacherList(ret.TeacherIDs)
+	//ret.Teachers, err = Tm.GetTeacherList(ret.TeacherIDs)
 	if err != nil {
 		return ret, err
 	}

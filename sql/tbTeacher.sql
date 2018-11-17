@@ -6,7 +6,7 @@ CREATE TABLE `tbTeacher` (
   `vMobile`      varchar(16)        NOT NULL DEFAULT ''                                               COMMENT '手机号',
   `vAddress`     varchar(128)       NOT NULL DEFAULT ''                                               COMMENT '家庭地址',
   `eStatus`      tinyint(1)         NOT NULL DEFAULT '1'                                              COMMENT '逻辑状态',
-  `dtBirthday`   datetime           NOT NULL DEFAULT '2008-01-01 00:00:00'                            COMMENT '生日',
+  `dtBirthday`   date               NOT NULL DEFAULT '2008-01-01 00:00:00'                            COMMENT '生日',
   `dtCreateTime` datetime           NOT NULL DEFAULT CURRENT_TIMESTAMP                                COMMENT '创建时间',
   `dtModifyTime` datetime           NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP(0) COMMENT '修改时间',
   PRIMARY KEY (`iTeacherID`)
