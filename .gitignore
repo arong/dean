@@ -13,3 +13,4 @@ conf/app.conf
 
 # directory
 swagger/
+badger/
