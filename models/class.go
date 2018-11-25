@@ -34,25 +34,33 @@ var (
 )
 
 type ClassManager struct {
-	idMap map[ClassID]*Class
+	idMap map[int]*Class
 	mutex sync.Mutex
 }
 
+func (cm *ClassManager) Lock() {
+	cm.mutex.Lock()
+}
+
+func (cm *ClassManager) UnLock() {
+	cm.mutex.Unlock()
+}
+
 // maintain the relation between class and teacher
-func (cm *ClassManager) Init(data map[ClassID]*Class) {
+func (cm *ClassManager) Init(data map[int]*Class) {
 	if cm == nil {
 		return
 	}
 
 	if data == nil {
-		cm.idMap = make(map[ClassID]*Class)
+		cm.idMap = make(map[int]*Class)
 	} else {
 		cm.idMap = data
 	}
 }
 
-func (cm *ClassManager) AddClass(c *Class) (ClassID, error) {
-	var ret ClassID
+func (cm *ClassManager) AddClass(c *Class) (int, error) {
+	var ret int
 
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
@@ -88,14 +96,14 @@ func (cm *ClassManager) ModifyClass(c *Class) error {
 		return ErrClassNotExist
 	}
 
-	if curr.Name != c.Name {
-		curr.Name = c.Name
+	if curr.Equal(*c) {
+		return nil
+	}
 
-		err := Ma.UpdateClass(c)
-		if err != nil {
-			logs.Warn("database error")
-			return err
-		}
+	err := Ma.UpdateClass(c)
+	if err != nil {
+		logs.Warn("database error")
+		return err
 	}
 	return nil
 }
@@ -131,9 +139,8 @@ func (cm *ClassManager) GetAll() ClassList {
 	return ret
 }
 
-func (cm *ClassManager) GetInfo(id ClassID) (*ClassResp, error) {
+func (cm *ClassManager) GetInfo(id int) (*ClassResp, error) {
 	ret := &ClassResp{}
-	var err error
 
 	if cm == nil {
 		return ret, nil
@@ -145,9 +152,5 @@ func (cm *ClassManager) GetInfo(id ClassID) (*ClassResp, error) {
 	}
 
 	ret.Class = *val
-	//ret.Teachers, err = Tm.GetTeacherList(ret.TeacherIDs)
-	if err != nil {
-		return ret, err
-	}
 	return ret, nil
 }

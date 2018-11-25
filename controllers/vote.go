@@ -98,8 +98,6 @@ Out:
 // @router /:voteCode [get]
 func (v *VoteController) Get() {
 	resp := BaseResponse{Code: -1}
-	var err error
-	var filter *models.VoteCodeInfo
 	var data *models.ClassResp
 
 	//logs.Debug(v.Ctx)
@@ -113,20 +111,8 @@ func (v *VoteController) Get() {
 		goto Out
 	}
 
-	filter, err = models.Decode(voteCode)
-	if err != nil {
-		resp.Msg = "invalid vote code"
-		logs.Debug("invalid vote code")
-		goto Out
-	}
-
 	logs.Debug("receive a vote", "voteCode", voteCode)
 
-	data, err = models.Cm.GetInfo(filter.GetID())
-	if err != nil {
-		resp.Msg = err.Error()
-		goto Out
-	}
 	resp.Code = 0
 	resp.Msg = msgSuccess
 	resp.Data = data

@@ -25,7 +25,7 @@ type ClassController struct {
 func (c *ClassController) Add() {
 	request := models.Class{}
 	resp := base.BaseResponse{Code: -1}
-	var id models.ClassID
+	var id int
 
 	logs.Trace("[ClassController::Add]", "request", string(c.Ctx.Input.RequestBody))
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &request)
@@ -35,8 +35,10 @@ func (c *ClassController) Add() {
 		goto Out
 	}
 
-	if request.Grade <= 0 || request.Index <= 0 {
-		resp.Msg = "invalid grade or class"
+	// 班级
+	err = request.Check()
+	if err != nil {
+		resp.Msg = err.Error()
 		logs.Debug("[ClassController::Add] invalid parameter")
 		goto Out
 	}
@@ -50,8 +52,8 @@ func (c *ClassController) Add() {
 		}
 	}
 
-	if len(request.InstructorList) > 0 {
-		ok := models.Tm.CheckInstructorList(request.InstructorList)
+	if len(request.TeacherList) > 0 {
+		ok := models.Tm.CheckInstructorList(request.TeacherList)
 		if !ok {
 			logs.Debug("[ClassController::Add] invalid instructor list")
 			resp.Msg = "invalid instructor list"
@@ -161,7 +163,7 @@ func (c *ClassController) Info() {
 		goto Out
 	}
 
-	data, err = models.Cm.GetInfo(models.ClassID(id))
+	data, err = models.Cm.GetInfo(id)
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out

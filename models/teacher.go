@@ -97,6 +97,14 @@ var (
 	ErrNotExist     = errors.New("teacher not exist")
 )
 
+func (tm *TeacherManager) Lock() {
+	tm.mutex.Lock()
+}
+
+func (tm *TeacherManager) UnLock() {
+	tm.mutex.Unlock()
+}
+
 func (tm *TeacherManager) Init(data map[UserID]*Teacher) {
 	if tm == nil {
 		return
