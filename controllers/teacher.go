@@ -83,7 +83,7 @@ Out:
 // @Param	teacherID		path 	string	true		"the teacherID you want to get"
 // @Success 200 {object}	models.Teacher
 // @Failure 403 :teacherID is empty
-// @router /:teacherID [get]
+// @router /info/:teacherID [get]
 func (o *TeacherController) Get() {
 	resp := BaseResponse{Code: -1}
 	var err error
@@ -117,8 +117,6 @@ Out:
 
 // @Title Filter
 // @Description get all objects
-// @Param	page		query 	string	true		"The username for login"
-// @Param	size		query 	string	true		"The password for login"
 // @Param	body		body 	models.TeacherFilter	true		"The object content"
 // @Success 200 {object} models.TeacherListResp
 // @router /filter [post]
@@ -148,7 +146,7 @@ Out:
 // @Title GetAll
 // @Description get all objects
 // @Success 200 {object} models.TeacherListResp
-// @router / [get]
+// @router /list [get]
 func (o *TeacherController) GetAll() {
 	o.Data["json"] = &BaseResponse{Msg: msgSuccess, Data: models.Tm.GetAll()}
 	o.ServeJSON()

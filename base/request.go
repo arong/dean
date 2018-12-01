@@ -24,3 +24,7 @@ func (b *BaseRequest) IsValid() bool {
 	}
 	return true
 }
+
+type DelList struct {
+	IDList []int `json:"id_list"`
+}

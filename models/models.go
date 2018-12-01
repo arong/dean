@@ -23,10 +23,10 @@ type Class struct {
 
 	ID          int            `json:"id"`
 	MasterID    UserID         `json:"master_id"` // 班主任
-	Season      int            `json:"season"`    // 1: 春季, 3: 秋季
+	Term        int            `json:"term"`      // 1: 第一学期, 3: 第二学期
 	Name        string         `json:"name"`      // 班级名称
 	Year        int            `json:"year"`      // 所在年份
-	TeacherList InstructorList `json:"teacher_list"`
+	TeacherList InstructorList `json:"teacher_list,omitempty"`
 	RemoveList  InstructorList `json:"-"`
 	AddList     InstructorList `json:"-"`
 }
@@ -44,6 +44,10 @@ func (c Class) Check() error {
 		return errors.New("invalid year")
 	}
 
+	if c.Term == 0 {
+		return errors.New("invalid season")
+	}
+
 	return nil
 }
 
@@ -51,7 +55,7 @@ func (c Class) Equal(r Class) bool {
 	if c.MasterID != r.MasterID ||
 		c.Name != r.Name ||
 		c.Year != r.Year ||
-		c.Season != r.Season {
+		c.Term != r.Term {
 		return false
 	}
 	if len(c.TeacherList) != len(r.TeacherList) {
@@ -98,17 +102,10 @@ type Filter struct {
 	Index int `json:"index"` // 班级
 }
 
-//func (f *Filter) GetID() ClassID {
-//	if f == nil {
-//		return 0
-//	}
-//	return ClassID(((f.Grade & 0xf) << 8) | f.Index&0x0f)
-//}
-
 // InstructorInfo specify teacher and its subject id
 type InstructorInfo struct {
-	TeacherID UserID `json:"teacher_id"`
-	SubjectID int    `json:"subject_id"`
+	TeacherID UserID `json:"tid"`
+	SubjectID int    `json:"sid"`
 }
 
 type InstructorList []InstructorInfo

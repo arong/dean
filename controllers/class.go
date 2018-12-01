@@ -2,10 +2,8 @@ package controllers
 
 import (
 	"encoding/json"
-	"sort"
-	"strconv"
-
 	"github.com/arong/dean/base"
+	"strconv"
 
 	"github.com/arong/dean/models"
 	"github.com/astaxie/beego"
@@ -52,6 +50,14 @@ func (c *ClassController) Add() {
 		}
 	}
 
+	for _, v := range request.TeacherList {
+		if v.TeacherID == 0 || v.SubjectID == 0 {
+			resp.Code = base.ErrPartialFailed
+			resp.Msg = "invalid input"
+			goto Out
+		}
+	}
+
 	if len(request.TeacherList) > 0 {
 		ok := models.Tm.CheckInstructorList(request.TeacherList)
 		if !ok {
@@ -88,6 +94,13 @@ func (u *ClassController) Update() {
 	if err != nil {
 		logs.Debug("[ClassController::Update] invalid json input", "err", err)
 		resp.Msg = msgInvalidJSON
+		goto Out
+	}
+
+	err = class.Check()
+	if err != nil {
+		logs.Debug("[ClassController::Update] invalid data", "err", err)
+		resp.Msg = msgInvalidParam
 		goto Out
 	}
 
@@ -155,11 +168,12 @@ Out:
 func (c *ClassController) Info() {
 	resp := BaseResponse{Code: -1}
 	var data *models.ClassResp
-	var err error
 
-	id, err := strconv.Atoi(c.GetString(":classID"))
+	v := c.Ctx.Input.Query("id")
+	id, err := strconv.Atoi(v)
 	if err != nil {
-		resp.Msg = msgInvalidJSON
+		logs.Debug("[Info] invalid class id", "id", v)
+		resp.Msg = msgInvalidParam
 		goto Out
 	}
 
@@ -187,9 +201,8 @@ func (c *ClassController) GetAll() {
 		Msg:  msgSuccess,
 	}
 	tmp := models.Cm.GetAll()
-	sort.Sort(tmp)
 
-	resp.Data = CommList{Total: len(tmp), List: tmp}
+	resp.Data = tmp
 	c.Data["json"] = resp
 	c.ServeJSON()
 }

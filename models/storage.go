@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"fmt"
+	"github.com/pkg/errors"
 
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
@@ -41,9 +42,8 @@ func (c *DBConfig) GetConf() error {
 
 func (ma *mysqlAgent) Init(conf *DBConfig) {
 	var err error
-	// "root:123456@tcp(localhost:3306)/lflss?charset=utf8"
+	// example: "root:123456@tcp(localhost:3306)/lflss?charset=utf8"
 	path := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8", conf.User, conf.Password, conf.Host, conf.Port, conf.DBName)
-	logs.Debug(path)
 	ma.db, err = sql.Open("mysql", path)
 	if err != nil {
 		panic("cannot connect to mysql")
@@ -53,6 +53,28 @@ func (ma *mysqlAgent) Init(conf *DBConfig) {
 // load data
 func (ma *mysqlAgent) LoadAllData() error {
 	logs.Info("start loading data")
+
+	// load all subject info
+	subjectMap := make(map[int]SubjectInfo)
+	{
+		rows, err := ma.db.Query("select iSubjectID,vSubjectKey, vSubjectName from tbSubject where eStatus =1;")
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			tmp := SubjectInfo{}
+			err = rows.Scan(&tmp.ID, &tmp.Key, &tmp.Name)
+			if err != nil {
+				logs.Error("scan failed", err)
+				continue
+			}
+			subjectMap[tmp.ID] = tmp
+		}
+	}
+	Sm.subject = subjectMap
+
 	// load all teachers
 	teacherMap := make(map[UserID]*Teacher)
 	{
@@ -79,7 +101,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 	// load class
 	classMap := make(map[int]*Class)
 	{
-		rows, err := ma.db.Query("SELECT iClassID,iGrade,iIndex,vName FROM tbClass WHERE eStatus = 1;")
+		rows, err := ma.db.Query("SELECT iClassID,iGrade,iIndex,vName,iStartYear,eTerm FROM tbClass WHERE eStatus = 1;")
 		if err != nil {
 			return err
 		}
@@ -87,7 +109,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 
 		for rows.Next() {
 			tmp := &Class{}
-			err = rows.Scan(&tmp.ID, &tmp.Grade, &tmp.Index, &tmp.Name)
+			err = rows.Scan(&tmp.ID, &tmp.Grade, &tmp.Index, &tmp.Name, &tmp.Year, &tmp.Term)
 			if err != nil {
 				continue
 			}
@@ -99,23 +121,31 @@ func (ma *mysqlAgent) LoadAllData() error {
 
 	// load class-teacher
 	{
-		rows, err := ma.db.Query("SELECT iClassID,iTeacherID FROM tbClassTeacherRelation WHERE eStatus=1;")
+		rows, err := ma.db.Query("SELECT iClassID,iTeacherID,iSubjectID FROM tbClassTeacherRelation WHERE eStatus=1;")
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 
 		for rows.Next() {
-			var classID ClassID
-			var teacherID UserID
-			err = rows.Scan(&classID, &teacherID)
+			var classID int
+			tmp := InstructorInfo{}
+			err = rows.Scan(&classID, &tmp.TeacherID, &tmp.SubjectID)
 			if err != nil {
 				continue
 			}
 			// 检查teacherID 是否存在
-			if _, ok := teacherMap[teacherID]; !ok {
-				logs.Trace("data broken", "teacherID", teacherID)
+			if _, ok := teacherMap[tmp.TeacherID]; !ok {
+				logs.Warn("data broken, teacher not found", "teacherID", tmp.TeacherID)
 				continue
+			}
+
+			// 检查classID 是否存在
+			if v, ok := classMap[classID]; !ok {
+				logs.Warn("data broken, class not found", "classID", classID)
+				continue
+			} else {
+				v.TeacherList = append(v.TeacherList, tmp)
 			}
 		}
 	}
@@ -164,28 +194,6 @@ func (ma *mysqlAgent) LoadAllData() error {
 		}
 	}
 	Ac.loginMap = loginMap
-
-	// load all subject info
-	subjectMap := make(map[int]string)
-	{
-		rows, err := ma.db.Query("select iSubjectID, vSubjectName from tbSubject where eStatus =1;")
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-
-		for rows.Next() {
-			var id int
-			var subject string
-			err = rows.Scan(&id, &subject)
-			if err != nil {
-				logs.Error("scan failed", err)
-				continue
-			}
-			subjectMap[id] = subject
-		}
-	}
-	Sm.subject = subjectMap
 
 	logs.Info("load data success")
 	return nil
@@ -241,13 +249,13 @@ func (ma *mysqlAgent) DeleteTeacher(teacherID UserID) error {
 // 增删改查
 func (ma *mysqlAgent) InsertClass(t *Class) error {
 	// Prepare statement for inserting data
-	stmtIns, err := ma.db.Prepare("INSERT INTO `tbClass` (`iGrade`, `iIndex`, `vName`,`iMasterID`,`iStartYear`,`eSeason`) VALUES (?,?,?,?,?,?);")
+	stmtIns, err := ma.db.Prepare("INSERT INTO `tbClass` (`iGrade`, `iIndex`, `vName`,`iMasterID`,`iStartYear`,`eTerm`) VALUES (?,?,?,?,?,?);")
 	if err != nil {
 		return err
 	}
 	defer stmtIns.Close()
 
-	resp, err := stmtIns.Exec(t.Grade, t.Index, t.Name, t.MasterID, t.Year, t.Season)
+	resp, err := stmtIns.Exec(t.Grade, t.Index, t.Name, t.MasterID, t.Year, t.Term)
 	if err != nil {
 		logs.Warn("execute sql failed", "err", err)
 		return err
@@ -262,7 +270,7 @@ func (ma *mysqlAgent) InsertClass(t *Class) error {
 			return err
 		}
 
-		for _, v := range t.AddList {
+		for _, v := range t.TeacherList {
 			_, err = stmtIns.Exec(t.ID, v.SubjectID, v.TeacherID)
 			if err != nil {
 				logs.Warn("execute sql failed", "err", err)
@@ -276,13 +284,13 @@ func (ma *mysqlAgent) InsertClass(t *Class) error {
 func (ma *mysqlAgent) UpdateClass(t *Class) error {
 	// insert into tbClass
 	{
-		stmtIns, err := ma.db.Prepare("UPDATE tbClass SET iMasterID=?,dtTerm=?,eSeason=? WHERE iClassID=?;")
+		stmtIns, err := ma.db.Prepare("UPDATE tbClass SET iMasterID=?,iStartYear=?,eTerm=? WHERE iClassID=?;")
 		if err != nil {
 			return err
 		}
 		defer stmtIns.Close()
 
-		_, err = stmtIns.Exec(t.MasterID, t.Year, t.Season, t.ID)
+		_, err = stmtIns.Exec(t.MasterID, t.Year, t.Term, t.ID)
 		if err != nil {
 			logs.Warn("execute sql failed", "err", err)
 			return err
@@ -439,4 +447,75 @@ func (ma *mysqlAgent) UpdatePassword(id UserID, password string) error {
 	return nil
 }
 
-//
+func (ma *mysqlAgent) AddSubject(s *SubjectInfo) (int, error) {
+	stmtIns, err := ma.db.Prepare("INSERT INTO tbSubject (`vSubjectKey`, `vSubjectName`) VALUES (?,?);")
+	if err != nil {
+		return 0, err
+	}
+	defer stmtIns.Close()
+
+	resp, err := stmtIns.Exec(s.Key, s.Name)
+	if err != nil {
+		logs.Warn("execute sql failed", "err", err)
+		return 0, err
+	}
+
+	id, err := resp.LastInsertId()
+	if err != nil {
+		logs.Info("[] unexpected error", "err", err)
+		return 0, nil
+	}
+	return int(id), nil
+}
+
+func (ma *mysqlAgent) UpdateSubject(s *SubjectInfo) error {
+	stmtIns, err := ma.db.Prepare("UPDATE tbSubject SET `vSubjectKey`=? WHERE `iSubjectID`=?;")
+	if err != nil {
+		return err
+	}
+	defer stmtIns.Close()
+
+	resp, err := stmtIns.Exec(s.Key, s.ID)
+	if err != nil {
+		logs.Warn("[mysqlAgent::UpdateSubject] execute sql failed", "err", err)
+		return err
+	}
+
+	count, err := resp.RowsAffected()
+	if err != nil {
+		logs.Warn("[mysqlAgent::UpdateSubject] unexpected update rows", "err", err)
+		return err
+	}
+
+	if count != 1 {
+		logs.Warn("[mysqlAgent::UpdateSubject] duplicated data found")
+		return errors.New("data error")
+	}
+	return nil
+}
+
+func (ma *mysqlAgent) DeleteSubject(id int) error {
+	stmtIns, err := ma.db.Prepare("UPDATE tbSubject SET `eStatus`=? WHERE `iSubjectID`=?;")
+	if err != nil {
+		return err
+	}
+	defer stmtIns.Close()
+
+	resp, err := stmtIns.Exec(eStatusDeleted, id)
+	if err != nil {
+		logs.Warn("[DeleteSubject] execute sql failed", "err", err)
+		return err
+	}
+
+	count, err := resp.RowsAffected()
+	if err != nil {
+		logs.Warn("[DeleteSubject] unexpected update rows", "err", err)
+		return err
+	}
+
+	if count != 1 {
+		logs.Warn("[DeleteSubject] duplicated data found")
+		return errors.New("data error")
+	}
+	return nil
+}

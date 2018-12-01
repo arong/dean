@@ -326,7 +326,8 @@ func (tm *TeacherManager) CheckTeachers(ids []UserID) bool {
 func (tm *TeacherManager) CheckInstructorList(list InstructorList) bool {
 	for _, v := range list {
 		if t, ok := tm.idMap[v.TeacherID]; ok {
-			if t.SubjectID != v.SubjectID {
+			if t.SubjectID != 0 && t.SubjectID != v.SubjectID {
+				logs.Debug("[CheckInstructorList]","t.SubjectID", t.SubjectID, "v.SubjectID", v.SubjectID)
 				return false
 			}
 		} else {

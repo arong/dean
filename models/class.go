@@ -2,6 +2,8 @@ package models
 
 import (
 	"errors"
+	"github.com/arong/dean/base"
+	"sort"
 	"sync"
 
 	"github.com/astaxie/beego/logs"
@@ -100,11 +102,24 @@ func (cm *ClassManager) ModifyClass(c *Class) error {
 		return nil
 	}
 
+	if c.Term != 0 {
+		curr.Term = c.Term
+	}
+
+	if c.MasterID != 0 && c.MasterID != curr.MasterID {
+		curr.MasterID = c.MasterID
+	}
+
+	if c.Year != 0 && c.Year != curr.Year {
+		curr.Year = c.Year
+	}
+
 	err := Ma.UpdateClass(c)
 	if err != nil {
 		logs.Warn("database error")
 		return err
 	}
+
 	return nil
 }
 
@@ -131,12 +146,16 @@ func (cm *ClassManager) DelClass(list ClassIDList) (ClassIDList, error) {
 	return failedList, nil
 }
 
-func (cm *ClassManager) GetAll() ClassList {
-	ret := ClassList{}
+func (cm *ClassManager) GetAll() base.CommList {
+	resp := base.CommList{}
+	list := ClassList{}
 	for _, v := range cm.idMap {
-		ret = append(ret, v)
+		list = append(list, v)
 	}
-	return ret
+	sort.Sort(list)
+	resp.List = list
+	resp.Total = len(list)
+	return resp
 }
 
 func (cm *ClassManager) GetInfo(id int) (*ClassResp, error) {
