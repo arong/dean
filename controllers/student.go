@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"github.com/arong/dean/base"
 	"github.com/arong/dean/models"
 	"github.com/astaxie/beego/logs"
 	"strconv"
@@ -21,13 +22,13 @@ type StudentController struct {
 // @Failure 403 body is empty
 // @router /add [post]
 func (u *StudentController) Add() {
-	var id models.UserID
-	var user models.User
+	var id int64
+	var user models.StudentInfo
 	resp := BaseResponse{Code: -1}
 
 	err := json.Unmarshal(u.Ctx.Input.RequestBody, &user)
 	if err != nil {
-		logs.Debug("[UserController::Post] invalid json")
+		logs.Debug("[StudentController::Add] invalid json", "err", err)
 		resp.Msg = msgInvalidJSON
 		goto Out
 	}
@@ -52,17 +53,32 @@ Out:
 // @Param	grade		query 	string	true		"The grade of class"
 // @Param	index		query 	string	true		"The number of class"
 // @Success 200 {object} models.User
-// @router /list [get]
-func (u *StudentController) GetAll() {
-	filter := models.Filter{}
-	filter.Grade, _ = strconv.Atoi(u.GetString("grade"))
-	filter.Index, _ = strconv.Atoi(u.GetString("index"))
+// @router /list [post]
+func (u *StudentController) Filter() {
+	request := models.StudentFilter{}
+	resp := base.BaseResponse{}
+	ret := &base.CommList{}
 
-	u.Data["json"] = BaseResponse{
-		Code: 0,
-		Msg:  msgSuccess,
-		Data: models.Um.GetAllUsers(&filter),
+	err := json.Unmarshal(u.Ctx.Input.RequestBody, &request)
+	if err != nil {
+		logs.Debug("[StudentController::Filter] invalid input", "err", err)
+		resp.Code = base.ErrInvalidInput
+		goto Out
 	}
+
+	err = request.Check()
+	if err != nil {
+		logs.Debug("[StudentController::Filter] invalid parameter", "err", err)
+		resp.Msg = err.Error()
+		resp.Code = base.ErrInvalidParameter
+		goto Out
+	}
+
+	ret = models.Um.GetAllUsers(&request)
+	resp.Msg = msgSuccess
+	resp.Data = ret
+Out:
+	u.Data["json"] = resp
 	u.ServeJSON()
 }
 
@@ -81,7 +97,7 @@ func (u *StudentController) GetInfo() {
 		goto Out
 	}
 
-	resp.Data, err = models.Um.GetUser(models.UserID(uid))
+	resp.Data, err = models.Um.GetUser(uid)
 	if err != nil {
 		resp.Msg = err.Error()
 		logs.Debug("getUserID failed")
@@ -104,7 +120,7 @@ Out:
 func (u *StudentController) Update() {
 	resp := &BaseResponse{Code: -1}
 	tmp := u.GetString(":uid")
-	var user models.User
+	var user models.StudentInfo
 	uid, err := strconv.ParseInt(tmp, 10, 64)
 	if err != nil {
 		logs.Debug("[StudentController::Update] parse uid failed")
@@ -135,6 +151,10 @@ Out:
 	u.ServeJSON()
 }
 
+type delStuReq struct {
+	IDList []int64
+}
+
 // @Title Delete
 // @Description delete the user
 // @Param	uid		path 	string	true		"The uid you want to delete"
@@ -143,15 +163,18 @@ Out:
 // @router /delete [post]
 func (u *StudentController) Delete() {
 	resp := BaseResponse{Code: -1}
-	tmp := u.GetString(":uid")
-	uid, err := strconv.ParseInt(tmp, 10, 64)
+	request := delStuReq{}
+
+	err := json.Unmarshal(u.Ctx.Input.RequestBody, &request)
 	if err != nil {
-		logs.Debug("[UserController::Delete] invalid uid")
+		logs.Debug("[StudentController::Delete] invalid json", "err", err)
+		resp.Msg = msgInvalidJSON
 		goto Out
 	}
-	err = models.Um.DelUser(models.UserID(uid))
+
+	err = models.Um.DelUser(request.IDList)
 	if err != nil {
-		logs.Debug("[UserController::Delete] failed", err)
+		logs.Debug("[StudentController::Delete] failed", err)
 		resp.Msg = err.Error()
 		goto Out
 	}

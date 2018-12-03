@@ -1,6 +1,8 @@
 package models
 
 import (
+	"github.com/arong/dean/base"
+	"github.com/astaxie/beego/logs"
 	"github.com/pkg/errors"
 	"sort"
 )
@@ -8,6 +10,23 @@ import (
 /*
  * struct info
  */
+
+type Item struct {
+	ID   int `json:"id"`
+	Name string `json:"name"`
+}
+
+type ItemList []Item
+
+func (il ItemList) Len() int {
+	return len(il)
+}
+func (il ItemList) Swap(i, j int) {
+	il[j], il[i] = il[i], il[j]
+}
+func (il ItemList) Less(i, j int) bool {
+	return il[i].ID < il[j].ID
+}
 
 // ClassID of size two byte
 // +--------+-------+
@@ -48,6 +67,9 @@ func (c Class) Check() error {
 		return errors.New("invalid season")
 	}
 
+	if c.MasterID == 0 {
+		return errors.New("invalid master id")
+	}
 	return nil
 }
 
@@ -102,6 +124,28 @@ type Filter struct {
 	Index int `json:"index"` // 班级
 }
 
+type StudentFilter struct {
+	Filter
+	base.CommPage
+	Name   string
+	Number string
+}
+
+func (s StudentFilter) Check() error {
+	if s.Name != "" {
+		return nil
+	}
+
+	if s.Number != "" {
+		return nil
+	}
+
+	if s.Page < 0 || s.Size <= 0 {
+		return errors.New("page error")
+	}
+	return nil
+}
+
 // InstructorInfo specify teacher and its subject id
 type InstructorInfo struct {
 	TeacherID UserID `json:"tid"`
@@ -126,4 +170,68 @@ func (il InstructorList) Less(i, j int) bool {
 	} else {
 		return il[i].TeacherID < il[j].TeacherID
 	}
+}
+
+func (il InstructorList) Deduplicate() InstructorList {
+	tmp := make(map[int]InstructorInfo)
+	for _, v := range il {
+		val := v
+		if v.SubjectID == 0 || v.TeacherID == 0 {
+			continue
+		}
+		tmp[v.SubjectID] = val
+	}
+
+	// no duplicated item
+	if len(il) == len(tmp) {
+		return il
+	}
+
+	newList := make([]InstructorInfo, 0, len(tmp))
+	for _, v := range tmp {
+		val := v
+		newList = append(newList, val)
+	}
+	logs.Info("[]", "newList", newList)
+	return newList
+}
+
+func (il InstructorList) Diff(r InstructorList) (all, add, del InstructorList) {
+	all, add, del = InstructorList{}, InstructorList{}, InstructorList{}
+	curr := make(map[int]InstructorInfo)
+	for _, v := range il {
+		curr[v.SubjectID] = v
+	}
+
+	for _, i := range r {
+		v := i
+		if val, ok := curr[v.SubjectID]; ok {
+			tmp := val
+			if v.TeacherID != val.TeacherID {
+				add = append(add, v)
+				del = append(del, tmp)
+			}
+			delete(curr, v.SubjectID)
+		} else {
+			add = append(add, v)
+		}
+	}
+
+	for _, i := range il {
+		v := i
+		if _, ok := curr[v.SubjectID]; ok {
+			continue
+		}
+		all = append(all, v)
+	}
+
+	all = append(all, add...)
+
+	// delete list
+	for _, v := range curr {
+		tmp := v
+		del = append(del, tmp)
+	}
+
+	return all, add, del
 }

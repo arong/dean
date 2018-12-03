@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"fmt"
 	"github.com/astaxie/beego/logs"
 	"os"
 	"sort"
@@ -323,18 +324,18 @@ func (tm *TeacherManager) CheckTeachers(ids []UserID) bool {
 	return true
 }
 
-func (tm *TeacherManager) CheckInstructorList(list InstructorList) bool {
+func (tm *TeacherManager) CheckInstructorList(list InstructorList) error {
 	for _, v := range list {
 		if t, ok := tm.idMap[v.TeacherID]; ok {
 			if t.SubjectID != 0 && t.SubjectID != v.SubjectID {
-				logs.Debug("[CheckInstructorList]","t.SubjectID", t.SubjectID, "v.SubjectID", v.SubjectID)
-				return false
+				logs.Debug("[CheckInstructorList]", "t.SubjectID", t.SubjectID, "v.SubjectID", v.SubjectID)
+				return errors.New(fmt.Sprintf("teacher %s and subject %d not match", t.RealName, v.SubjectID))
 			}
 		} else {
-			return false
+			return errors.New(fmt.Sprintf("teacher %d not found", v.TeacherID))
 		}
 	}
-	return true
+	return nil
 }
 
 func (tm *TeacherManager) CheckID(id UserID) bool {

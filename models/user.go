@@ -2,6 +2,7 @@ package models
 
 import (
 	"errors"
+	"github.com/arong/dean/base"
 	"github.com/astaxie/beego/logs"
 	"sort"
 	"sync"
@@ -10,35 +11,26 @@ import (
 var Um userManager
 
 type userManager struct {
-	nameMap map[string]*User
-	idMap   map[UserID]*User
-	mutex   sync.Mutex
+	idMap map[int64]*StudentInfo
+	mutex sync.Mutex
 }
 
-func (um *userManager) Init(userMap map[UserID]*User) {
-	um.nameMap = make(map[string]*User)
+func (um *userManager) Init(userMap map[int64]*StudentInfo) {
 	if userMap != nil {
 		um.idMap = userMap
-		for _, v := range userMap {
-			if _, ok := um.nameMap[v.LoginName]; ok {
-				logs.Warn("duplicated user found")
-			}
-			um.nameMap[v.LoginName] = v
-		}
 	} else {
-		um.idMap = make(map[UserID]*User)
+		um.idMap = make(map[int64]*StudentInfo)
 	}
 }
 
-type User struct {
-	StudentID UserID `json:"student_id"`
-	Filter
+type StudentInfo struct {
 	profile
-	LoginInfo
+	ClassID    int    `json:"class_id"`
+	StudentID  int64  `json:"student_id"`
 	RegisterID string `json:"register_id"` // 学号
 }
 
-type userList []*User
+type userList []*StudentInfo
 
 func (cl userList) Len() int {
 	return len(cl)
@@ -63,60 +55,45 @@ type profile struct {
 
 type UserID int64
 
-func (um *userManager) AddUser(u *User) (UserID, error) {
-	if len(u.LoginName) == 0 {
+func (um *userManager) AddUser(u *StudentInfo) (int64, error) {
+	var err error
+	if len(u.RealName) == 0 {
 		return 0, errors.New("invalid name")
-	}
-
-	if _, ok := um.nameMap[u.LoginName]; ok {
-		return 0, errExist
 	}
 
 	if u.Gender < eGenderMale || u.Gender > eGenderUnknown {
 		return 0, errors.New("invalid gender")
 	}
 
-	err := Ac.IsValidPassword(u.Password)
+	u.StudentID, err = Ma.InsertUser(u)
 	if err != nil {
-		logs.Debug("invalid password")
+		logs.Info("[AddUser]add user failed", err)
 		return 0, err
 	}
 
-	u.Password, err = Ac.EncryptPassword(u.Password)
-	if err != nil {
-		logs.Warn("[] encrypt failed", err)
-		return 0, err
-	}
-
-	err = Ma.InsertUser(u)
-	if err != nil {
-		logs.Info("add user failed", err)
-		return 0, err
-	}
-
-	um.nameMap[u.LoginName] = u
 	um.idMap[u.StudentID] = u
 
 	return u.StudentID, nil
 }
 
-func (um *userManager) DelUser(uid UserID) error {
-	curr, ok := um.idMap[uid]
-	if !ok {
-		return errNotExist
-	}
+func (um *userManager) DelUser(uidList []int64) error {
+	for _, uid := range uidList {
+		_, ok := um.idMap[uid]
+		if !ok {
+			return errNotExist
+		}
 
-	err := Ma.DeleteUser(uid)
-	if err != nil {
-		logs.Warn("[userManager::DelUser] failed", err)
-		return err
+		err := Ma.DeleteUser(uid)
+		if err != nil {
+			logs.Warn("[userManager::DelUser] failed", err)
+			return err
+		}
+		delete(um.idMap, uid)
 	}
-	delete(um.nameMap, curr.LoginName)
-	delete(um.idMap, uid)
 	return nil
 }
 
-func (um *userManager) ModUser(u *User) error {
+func (um *userManager) ModUser(u *StudentInfo) error {
 	if u.StudentID == 0 {
 		return errors.New("invalid user id")
 	}
@@ -126,43 +103,52 @@ func (um *userManager) ModUser(u *User) error {
 		return errNotExist
 	}
 
-	if curr.LoginName != u.LoginName {
-		curr.LoginName = u.LoginName
-	}
-
 	if u.RegisterID != "" && curr.RegisterID != u.RegisterID {
 		curr.RegisterID = u.RegisterID
 	}
 	return nil
 }
 
-func (um *userManager) GetUser(uid UserID) (*User, error) {
+func (um *userManager) GetUser(uid int64) (*StudentInfo, error) {
 	if val, ok := um.idMap[uid]; ok {
 		return val, nil
 	}
 	return nil, errors.New("User not exists")
 }
 
-func (um *userManager) GetUserByName(name string) (*User, error) {
-	val, ok := um.nameMap[name]
-	if !ok {
-		return nil, errNotExist
-	}
-	return val, nil
+func (um *userManager) GetUserByName(name string) (*StudentInfo, error) {
+	return nil, errNotExist
 }
 
-func (um *userManager) GetAllUsers(f *Filter) userList {
+func (um *userManager) GetAllUsers(f *StudentFilter) *base.CommList {
+	resp := &base.CommList{}
 	ret := userList{}
+	total := 0
+	start, end := f.GetRange()
+
+	curr := 0
 	for _, v := range um.idMap {
-		if f.Grade != 0 && f.Grade != v.Grade {
+
+		if f.Name != "" && f.Name != v.RealName {
 			continue
 		}
 
-		if f.Index != 0 && f.Index != v.Index {
+		if f.Number != "" && f.Number != v.RegisterID {
 			continue
 		}
+
+		// handle page
+		total++
+		if curr < start || curr >= end {
+			curr++
+			continue
+		}
+		curr++
 		ret = append(ret, v)
 	}
+	logs.Debug("[GetAllStudent]", "total count", len(um.idMap), "start", start, "end", end)
 	sort.Sort(ret)
-	return ret
+	resp.List = ret
+	resp.Total = total
+	return resp
 }

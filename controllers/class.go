@@ -50,6 +50,9 @@ func (c *ClassController) Add() {
 		}
 	}
 
+	// 去重
+	request.TeacherList = request.TeacherList.Deduplicate()
+
 	for _, v := range request.TeacherList {
 		if v.TeacherID == 0 || v.SubjectID == 0 {
 			resp.Code = base.ErrPartialFailed
@@ -59,10 +62,10 @@ func (c *ClassController) Add() {
 	}
 
 	if len(request.TeacherList) > 0 {
-		ok := models.Tm.CheckInstructorList(request.TeacherList)
-		if !ok {
+		err = models.Tm.CheckInstructorList(request.TeacherList)
+		if err != nil {
 			logs.Debug("[ClassController::Add] invalid instructor list")
-			resp.Msg = "invalid instructor list"
+			resp.Msg = err.Error()
 			goto Out
 		}
 	}
@@ -97,6 +100,7 @@ func (u *ClassController) Update() {
 		goto Out
 	}
 
+	class.TeacherList = class.TeacherList.Deduplicate()
 	err = class.Check()
 	if err != nil {
 		logs.Debug("[ClassController::Update] invalid data", "err", err)
@@ -167,7 +171,7 @@ Out:
 // @router /info [get]
 func (c *ClassController) Info() {
 	resp := BaseResponse{Code: -1}
-	var data *models.ClassResp
+	var data *models.Class
 
 	v := c.Ctx.Input.Query("id")
 	id, err := strconv.Atoi(v)
@@ -187,6 +191,22 @@ func (c *ClassController) Info() {
 	resp.Msg = msgSuccess
 	resp.Data = data
 Out:
+	c.Data["json"] = resp
+	c.ServeJSON()
+}
+
+// @Title GetAll
+// @Description get all objects
+// @Success 200 {object} models.Teacher
+// @router /filter [get]
+func (c *ClassController) Filter() {
+	resp := &BaseResponse{
+		Code: 0,
+		Msg:  msgSuccess,
+	}
+	tmp := models.Cm.Filter()
+
+	resp.Data = tmp
 	c.Data["json"] = resp
 	c.ServeJSON()
 }

@@ -1,4 +1,4 @@
-CREATE TABLE `tbUser`  (
+CREATE TABLE `tbStudent`  (
   `iUserID`       bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT                                           COMMENT '主键',
   `iGrade`        tinyint(1) UNSIGNED NOT NULL DEFAULT '0'                                              COMMENT '年级编号',
   `iIndex`        tinyint(2) UNSIGNED NOT NULL DEFAULT '0'                                              COMMENT '班级编号',

@@ -13,9 +13,18 @@ type CommPage struct {
 	Size int `json:"size"`
 }
 
+func (cp CommPage) GetRange() (int, int) {
+	if cp.Page <= 0 || cp.Size <= 0 {
+		return 0, 0
+	}
+	start := (cp.Page - 1) * cp.Size
+	end := cp.Page * cp.Size
+	return start, end
+}
+
 type CommList struct {
 	Total int         `json:"total"`
-	List  interface{} `json:"list"`
+	List  interface{} `json:"list,omitempty"`
 }
 
 const (

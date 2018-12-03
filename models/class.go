@@ -3,10 +3,9 @@ package models
 import (
 	"errors"
 	"github.com/arong/dean/base"
+	"github.com/astaxie/beego/logs"
 	"sort"
 	"sync"
-
-	"github.com/astaxie/beego/logs"
 )
 
 // global manager
@@ -89,37 +88,48 @@ func (cm *ClassManager) AddClass(c *Class) (int, error) {
 	return c.ID, nil
 }
 
-func (cm *ClassManager) ModifyClass(c *Class) error {
+func (cm *ClassManager) ModifyClass(r *Class) error {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
-	curr, ok := cm.idMap[c.ID]
+	curr, ok := cm.idMap[r.ID]
 	if !ok {
 		return ErrClassNotExist
 	}
 
-	if curr.Equal(*c) {
-		return nil
-	}
-
-	if c.Term != 0 {
-		curr.Term = c.Term
-	}
-
-	if c.MasterID != 0 && c.MasterID != curr.MasterID {
-		curr.MasterID = c.MasterID
-	}
-
-	if c.Year != 0 && c.Year != curr.Year {
-		curr.Year = c.Year
-	}
-
-	err := Ma.UpdateClass(c)
+	err := Tm.CheckInstructorList(r.TeacherList)
 	if err != nil {
-		logs.Warn("database error")
+		logs.Warn("[ModifyClass] CheckInstructorList error", "err", err)
 		return err
 	}
 
+	if curr.Equal(*r) {
+		logs.Debug("[ModifyClass] need do nothing")
+		return nil
+	}
+
+	if r.Term != 0 {
+		curr.Term = r.Term
+	}
+
+	if r.MasterID != 0 && r.MasterID != curr.MasterID {
+		curr.MasterID = r.MasterID
+	}
+
+	if r.Year != 0 && r.Year != curr.Year {
+		curr.Year = r.Year
+	}
+
+	// diff two list
+	curr.TeacherList, curr.AddList, curr.RemoveList = curr.TeacherList.Diff(r.TeacherList)
+	logs.Debug("[ModifyClass]", "addList", curr.AddList, "delList", curr.RemoveList, "all", curr.TeacherList)
+	err = Ma.UpdateClass(curr)
+	if err != nil {
+		logs.Warn("[ModifyClass] database error")
+		return err
+	}
+	curr.AddList = InstructorList{}
+	curr.RemoveList = InstructorList{}
 	return nil
 }
 
@@ -146,7 +156,7 @@ func (cm *ClassManager) DelClass(list ClassIDList) (ClassIDList, error) {
 	return failedList, nil
 }
 
-func (cm *ClassManager) GetAll() base.CommList {
+func (cm *ClassManager) Filter() base.CommList {
 	resp := base.CommList{}
 	list := ClassList{}
 	for _, v := range cm.idMap {
@@ -158,8 +168,17 @@ func (cm *ClassManager) GetAll() base.CommList {
 	return resp
 }
 
-func (cm *ClassManager) GetInfo(id int) (*ClassResp, error) {
-	ret := &ClassResp{}
+func (cm *ClassManager) GetAll() ItemList {
+	resp := ItemList{}
+	for _, v := range cm.idMap {
+		resp = append(resp, Item{ID: v.ID, Name: v.Name})
+	}
+	sort.Sort(resp)
+	return resp
+}
+
+func (cm *ClassManager) GetInfo(id int) (*Class, error) {
+	ret := &Class{}
 
 	if cm == nil {
 		return ret, nil
@@ -170,6 +189,6 @@ func (cm *ClassManager) GetInfo(id int) (*ClassResp, error) {
 		return ret, ErrClassNotExist
 	}
 
-	ret.Class = *val
+	*ret = *val
 	return ret, nil
 }

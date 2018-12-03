@@ -39,7 +39,7 @@ func init() {
 				&controllers.ScoreController{},
 			),
 		),
-		beego.NSNamespace("/user",
+		beego.NSNamespace("/student",
 			beego.NSInclude(
 				&controllers.StudentController{},
 			),
