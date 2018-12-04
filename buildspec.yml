@@ -5,10 +5,10 @@ phases:
     commands:
     - echo Build started on `date`
     - go get .
-    - go build main.go
+    - bee pack
   post_build:
     commands:
     - echo Build completed on `date`
 artifacts:
   files:
-  - hello
+  - dean.tar.gz

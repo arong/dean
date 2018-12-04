@@ -65,7 +65,7 @@ func (um *userManager) AddUser(u *StudentInfo) (int64, error) {
 		return 0, errors.New("invalid gender")
 	}
 
-	u.StudentID, err = Ma.InsertUser(u)
+	u.StudentID, err = Ma.InsertStudent(u)
 	if err != nil {
 		logs.Info("[AddUser]add user failed", err)
 		return 0, err
