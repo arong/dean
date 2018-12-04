@@ -5,7 +5,7 @@ phases:
     commands:
     - echo Build started on `date`
     - go get .
-    - bee pack
+    - $GOPATH/bin/bee pack
   post_build:
     commands:
     - echo Build completed on `date`
