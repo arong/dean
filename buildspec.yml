@@ -5,8 +5,9 @@ phases:
     commands:
     - echo Build started on `date`
     - go get .
-    - go get github.com/beego/bee
-    - $GOPATH/bin/bee pack
+    - go build main.go
+    - mv main dean
+    - tar -czvf dean.tar.gz dean
   post_build:
     commands:
     - echo Build completed on `date`
