@@ -3,7 +3,10 @@ package models
 import (
 	"database/sql"
 	"fmt"
+	"github.com/arong/dean/base"
+	"github.com/bearbin/go-age"
 	"github.com/pkg/errors"
+	"time"
 
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
@@ -89,7 +92,16 @@ func (ma *mysqlAgent) LoadAllData() error {
 			tmp := &Teacher{}
 			err = rows.Scan(&tmp.TeacherID, &tmp.Gender, &tmp.RealName, &tmp.Mobile, &tmp.SubjectID, &tmp.Birthday, &tmp.Address)
 			if err != nil {
+				logs.Warn("[LoadAllData] data error at tbTeacher")
 				continue
+			}
+			if tmp.Birthday != "" {
+				birth, err := time.Parse(base.DateFormat, tmp.Birthday)
+				if err != nil {
+					logs.Warn("[LoadAllData] data error at tbTeacher", "birthday", tmp.Birthday, "err", err)
+					continue
+				}
+				tmp.Age = age.Age(birth)
 			}
 			teacherMap[tmp.TeacherID] = tmp
 		}
@@ -155,7 +167,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 	// load students
 	userMap := make(map[int64]*StudentInfo)
 	{
-		rows, err := ma.db.Query("SELECT iUserID, vUserName, vRegistNumber, eGender FROM tbStudent WHERE eStatus = 1;")
+		rows, err := ma.db.Query("SELECT iUserID,vUserName,vRegistNumber,eGender,iClassID FROM tbStudent WHERE eStatus = 1;")
 		if err != nil {
 			return err
 		}
@@ -163,7 +175,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 
 		for rows.Next() {
 			u := StudentInfo{}
-			err = rows.Scan(&u.StudentID, &u.RealName, &u.RegisterID, &u.Gender)
+			err = rows.Scan(&u.StudentID, &u.RealName, &u.RegisterID, &u.Gender,&u.ClassID)
 			if err != nil {
 				continue
 			}
@@ -362,14 +374,14 @@ func (ma *mysqlAgent) DeleteClass(id int) error {
 
 // student
 // save student and password
-func (ma *mysqlAgent) InsertUser(u *StudentInfo) (int64, error) {
-	stmt, err := ma.db.Prepare("INSERT INTO `tbStudent`(`vRegistNumber`, `vUserName`, `eGender`) VALUES (?,?,?)")
+func (ma *mysqlAgent) InsertStudent(u *StudentInfo) (int64, error) {
+	stmt, err := ma.db.Prepare("INSERT INTO `tbStudent`(`vRegistNumber`, `vName`, `eGender`,`iClassID`,`vAddress`,`dtBirthday`) VALUES (?,?,?,?,?,?)")
 	if err != nil {
 		logs.Error("[mysqlAgent::InsertUser] failed", "err")
 		return 0, err
 	}
 
-	rs, err := stmt.Exec(u.RegisterID, u.RealName, u.Gender)
+	rs, err := stmt.Exec(u.RegisterID, u.RealName, u.Gender, u.ClassID, u.Address,u.Birthday)
 	if err != nil {
 		logs.Warn("[mysqlAgent::InsertUser]failed", err)
 		return 0, err
@@ -383,14 +395,14 @@ func (ma *mysqlAgent) InsertUser(u *StudentInfo) (int64, error) {
 	return id, nil
 }
 
-func (ma *mysqlAgent) UpdateUser(u *StudentInfo) error {
-	stmtIns, err := ma.db.Prepare("UPDATE tbStudent SET vName=? WHERE iUserID=?;")
+func (ma *mysqlAgent) UpdateStudent(u *StudentInfo) error {
+	stmtIns, err := ma.db.Prepare("UPDATE tbStudent SET vRegistNumber=?,vName=?,eGender=?,iClassID=?,vAddress=?,dtBirthday=? WHERE iUserID=?;")
 	if err != nil {
 		return err
 	}
 	defer stmtIns.Close()
 
-	_, err = stmtIns.Exec(u.RealName, u.StudentID)
+	_, err = stmtIns.Exec(u.RegisterID, u.RealName, u.Gender, u.ClassID, u.Address,u.Birthday,u.StudentID)
 	if err != nil {
 		logs.Warn("execute sql failed", "err", err)
 		return err

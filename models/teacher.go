@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/astaxie/beego/logs"
+	"github.com/bearbin/go-age"
 	"os"
 	"sort"
 	"sync"
@@ -51,10 +52,11 @@ func (t *Teacher) IsValid() error {
 		return errors.New("empty birthday")
 	}
 
-	_, err := time.Parse("2006-01-02", t.Birthday)
+	birth, err := time.Parse("2006-01-02", t.Birthday)
 	if err != nil {
 		return errors.New("invalid birthday")
 	}
+	t.Age = age.Age(birth)
 	return nil
 }
 
