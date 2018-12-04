@@ -5,6 +5,7 @@ phases:
     commands:
     - echo Build started on `date`
     - go get .
+    - go get github.com/beego/bee
     - $GOPATH/bin/bee pack
   post_build:
     commands:
