@@ -1,9 +1,8 @@
-version: 0.2
+version: 0.12.5
 
 phases:
   build:
     commands:
-    - echo Build started on `date`
     - go get .
     - go build main.go
     - mv main dean
