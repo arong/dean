@@ -5,6 +5,7 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/pkg/errors"
 	"sort"
+	"time"
 )
 
 /*
@@ -12,7 +13,7 @@ import (
  */
 
 type Item struct {
-	ID   int `json:"id"`
+	ID   int    `json:"id"`
 	Name string `json:"name"`
 }
 
@@ -234,4 +235,197 @@ func (il InstructorList) Diff(r InstructorList) (all, add, del InstructorList) {
 	}
 
 	return all, add, del
+}
+
+// questionnaire zone
+type OptionInfo struct {
+	OptionID int    `json:"option_id"`
+	Index    int    `json:"index"`
+	Option   string `json:"option"`
+}
+
+func (o OptionInfo) Check() error {
+	if o.Option == "" {
+		return errors.New("invalid option")
+	}
+	if o.Index < 0 {
+		return errors.New("invalid index")
+	}
+	return nil
+}
+
+type OptionList []OptionInfo
+
+func (ol OptionList) Len() int {
+	return len(ol)
+}
+func (ol OptionList) Swap(i, j int) {
+	ol[j], ol[i] = ol[i], ol[j]
+}
+func (ol OptionList) Less(i, j int) bool {
+	return ol[i].Index < ol[j].Index
+}
+
+func (ol OptionList) Check() error {
+	option := make(map[string]bool)
+	index := make(map[int]bool)
+	for _, v := range ol {
+		err := v.Check()
+		if err != nil {
+			return err
+		}
+		if _, ok := option[v.Option]; ok {
+			return errors.New("option duplicate")
+		} else {
+			option[v.Option] = true
+		}
+		if _, ok := index[v.Index]; ok {
+			return errors.New("index duplicate")
+		} else {
+			index[v.Index] = true
+		}
+	}
+	return nil
+}
+
+type QuestionInfo struct {
+	QuestionID int        `json:"question_id"`
+	Index      int        `json:"index"`
+	Type       int        `json:"type"`
+	Required   bool       `json:"required"`
+	Question   string     `json:"question"`
+	Options    OptionList `json:"options"`
+	Scope      []int      `json:"scope"` // which subject will this question apply to
+}
+
+func (q QuestionInfo) Check() error {
+	if q.Question == "" {
+		return errors.New("invalid question")
+	}
+
+	if q.Type < QuestionTypeSingleSelection || q.Type > QuestionTypeText {
+		return errors.New("invalid question type")
+	}
+
+	if len(q.Options) == 0 {
+		return errors.New("empty questions")
+	}
+	err := q.Options.Check()
+	if err != nil {
+		return err
+	}
+
+	if len(q.Scope) > 0 {
+		if !Sm.CheckSubjectList(q.Scope) {
+			return errors.New("invalid scope")
+		}
+	}
+	return err
+}
+
+type QuestionList []QuestionInfo
+
+func (q QuestionList) Len() int {
+	return len(q)
+}
+func (q QuestionList) Swap(i, j int) {
+	q[j], q[i] = q[i], q[j]
+}
+func (q QuestionList) Less(i, j int) bool {
+	return q[i].Index < q[j].Index
+}
+func (q QuestionList) Check() error {
+	title := make(map[string]bool)
+	index := make(map[int]bool)
+
+	for _, v := range q {
+		err := v.Check()
+		if err != nil {
+			return err
+		}
+
+		if _, ok := title[v.Question]; ok {
+			return errors.New("duplicate question found")
+		} else {
+			title[v.Question] = true
+		}
+
+		if _, ok := index[v.Index]; ok {
+			return errors.New("index duplicated")
+		} else {
+			index[v.Index] = true
+		}
+	}
+	return nil
+}
+
+type QuestionnaireInfo struct {
+	QuestionnaireID int          `json:"id"`
+	Status          int          `json:"status"` // 1: draft, 2: published
+	Title           string       `json:"title"`
+	StartTime       string       `json:"start"`
+	StopTime        string       `json:"stop"`
+	Questions       QuestionList `json:"questions"`
+	startTime       time.Time
+	stopTime        time.Time
+}
+
+type QuestionnaireList []QuestionnaireInfo
+
+func (ql QuestionnaireList) Len() int {
+	return len(ql)
+}
+func (ql QuestionnaireList) Swap(i, j int) {
+	ql[j], ql[i] = ql[i], ql[j]
+}
+func (ql QuestionnaireList) Less(i, j int) bool {
+	return ql[i].startTime.Before(ql[j].startTime)
+}
+func (ql QuestionnaireList) Page(page base.CommPage) QuestionnaireList {
+	start, end := page.GetRange()
+	size := len(ql)
+	ret := QuestionnaireList{}
+	if start >= size {
+		return ret
+	} else if end > size {
+		return ql[start:]
+	} else {
+		return ql[start:end]
+	}
+}
+
+const (
+	QuestionTypeSingleSelection = 1
+	QuestionTypeMultiSelection  = 2
+	QuestionTypeText            = 3
+	// questionnaire status
+	QStatusDraft     = 1 // draft, could be edited
+	QStatusPublished = 2 // published, could not be edited
+	QStatusDrawBack  = 3
+	QStatusExpired   = 4
+)
+
+func (q QuestionnaireInfo) Check() error {
+	if q.Title == "" {
+		return errors.New("invalid title")
+	}
+
+	if q.Status != QStatusDraft && q.Status != QStatusPublished {
+		return errors.New("invalid draft status")
+	}
+
+	if q.StopTime != "" && q.stopTime.Before(time.Now()) {
+		return errors.New("invalid stop time")
+	}
+
+	if q.StartTime != "" && q.StopTime != "" && q.startTime.After(q.stopTime) {
+		return errors.New("invalid time range")
+	}
+
+	if len(q.Questions) == 0 {
+		return errors.New("empty questions")
+	}
+	err := q.Questions.Check()
+
+	return err
 }

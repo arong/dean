@@ -175,7 +175,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 
 		for rows.Next() {
 			u := StudentInfo{}
-			err = rows.Scan(&u.StudentID, &u.RealName, &u.RegisterID, &u.Gender,&u.ClassID)
+			err = rows.Scan(&u.StudentID, &u.RealName, &u.RegisterID, &u.Gender, &u.ClassID)
 			if err != nil {
 				continue
 			}
@@ -205,6 +205,27 @@ func (ma *mysqlAgent) LoadAllData() error {
 		}
 	}
 	Ac.loginMap = loginMap
+
+	// init questionnaire
+	questionMap := make(map[int]*QuestionnaireInfo)
+	{
+		rows, err := ma.db.Query("SELECT iQuestionnaireID,vTitle,dtStartTime,dtStopTime,eDraftStatus FROM tbQuestionnaire;")
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			tmp := QuestionnaireInfo{}
+			err = rows.Scan(&tmp.QuestionnaireID, &tmp.Title, &tmp.StartTime, &tmp.StopTime, &tmp.Status)
+			if err != nil {
+				logs.Error("scan failed", err)
+				continue
+			}
+			questionMap[tmp.QuestionnaireID] = &tmp
+		}
+	}
+	Qm.questionnaires = questionMap
 
 	logs.Info("load data success")
 	return nil
@@ -381,7 +402,7 @@ func (ma *mysqlAgent) InsertStudent(u *StudentInfo) (int64, error) {
 		return 0, err
 	}
 
-	rs, err := stmt.Exec(u.RegisterID, u.RealName, u.Gender, u.ClassID, u.Address,u.Birthday)
+	rs, err := stmt.Exec(u.RegisterID, u.RealName, u.Gender, u.ClassID, u.Address, u.Birthday)
 	if err != nil {
 		logs.Warn("[mysqlAgent::InsertUser]failed", err)
 		return 0, err
@@ -402,7 +423,7 @@ func (ma *mysqlAgent) UpdateStudent(u *StudentInfo) error {
 	}
 	defer stmtIns.Close()
 
-	_, err = stmtIns.Exec(u.RegisterID, u.RealName, u.Gender, u.ClassID, u.Address,u.Birthday,u.StudentID)
+	_, err = stmtIns.Exec(u.RegisterID, u.RealName, u.Gender, u.ClassID, u.Address, u.Birthday, u.StudentID)
 	if err != nil {
 		logs.Warn("execute sql failed", "err", err)
 		return err
@@ -510,6 +531,70 @@ func (ma *mysqlAgent) DeleteSubject(id int) error {
 	if count != 1 {
 		logs.Warn("[DeleteSubject] duplicated data found")
 		return errors.New("data error")
+	}
+	return nil
+}
+
+func (ma *mysqlAgent) AddQuestionnaire(q *QuestionnaireInfo) error {
+	stmtIns, err := ma.db.Prepare("INSERT tbQuestionnaire (`vTitle`,`dtStartTime`,`dtStopTime`,`eDraftStatus`) VALUES (?,?,?,?);")
+	if err != nil {
+		return err
+	}
+	defer stmtIns.Close()
+
+	insQuestion, err := ma.db.Prepare("INSERT INTO `tbQuestion` (`iQuestionnaireID`,`iIndex`,`vQuestion`, `eType`,`bRequired`) VALUES (?,?,?,?);")
+	if err != nil {
+		return err
+	}
+
+	insOption, err := ma.db.Prepare("INSERT INTO `tbOption` (`iQuestionID`,`iIndex`,`vOption`) VALUES (?,?,?);")
+	if err != nil {
+		return err
+	}
+	resp, err := stmtIns.Exec(eStatusDeleted, q.Title, q.StartTime, q.StopTime, q.Status)
+	if err != nil {
+		logs.Warn("[AddQuestionnaire] execute sql failed", "err", err)
+		return err
+	}
+
+	tmp, err := resp.LastInsertId()
+	if err != nil {
+		logs.Warn("[AddQuestionnaire] insert tbQuestionnaire error", "err", err)
+		return err
+	}
+	q.QuestionnaireID = int(tmp)
+
+	// insert into class teacher relation table
+	{
+		for _, v := range q.Questions {
+			resp, err = insQuestion.Exec(q.QuestionnaireID, v.Index, v.Question, v.Type, v.Required)
+			if err != nil {
+				logs.Warn("[AddQuestionnaire] execute sql failed", "err", err)
+				return err
+			}
+			tmp, err = resp.LastInsertId()
+			if err != nil {
+				logs.Error("[AddQuestionnaire] insert tbQuestion failed", "question", v)
+				return err
+			}
+			v.QuestionID = int(tmp)
+
+			for _, val := range v.Options {
+				resp, err := insOption.Exec(v.QuestionID, val.Index, val.Option)
+				if err != nil {
+					logs.Error("[AddQuestionnaire] insert tbOption error")
+					return err
+				}
+
+				tmp, err = resp.LastInsertId()
+				if err != nil {
+					logs.Error("[AddQuestionnaire] insert tbOption error")
+					return err
+				}
+
+				val.OptionID = int(tmp)
+			}
+		}
 	}
 	return nil
 }

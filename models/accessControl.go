@@ -5,7 +5,7 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/dgraph-io/badger"
 	"github.com/nbutton23/zxcvbn-go"
-	"github.com/nu7hatch/gouuid"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
 	"time"
@@ -128,8 +128,7 @@ func (ac *accessControl) Login(req *LoginInfo) (string, error) {
 		ac.removeToken(l.CurrentToken)
 	}
 
-	tmp, err := uuid.NewV4()
-	token = tmp.String()
+	token = uuid.New().String()
 	l.CurrentToken = token
 	ac.tokenMap[token] = l
 
