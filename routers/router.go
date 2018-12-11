@@ -40,6 +40,11 @@ func init() {
 			),
 		),
 		beego.NSNamespace("/student",
+			beego.NSNamespace("/score",
+				beego.NSInclude(
+					&controllers.StudentScoreController{},
+				),
+			),
 			beego.NSInclude(
 				&controllers.StudentController{},
 			),

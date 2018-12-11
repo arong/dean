@@ -2,9 +2,10 @@ package controllers
 
 import (
 	"fmt"
+	"strconv"
+
 	"github.com/arong/dean/models"
 	"github.com/astaxie/beego"
-	"strconv"
 )
 
 // Operations about object
@@ -34,7 +35,7 @@ func (s *ScoreController) Get() {
 		goto Out
 	}
 	fmt.Println("teacherID=", id)
-	ret, err = models.Vm.GetScore(models.UserID(id))
+	ret, err = models.VM.GetScore(id)
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out

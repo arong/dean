@@ -2,14 +2,15 @@ package models
 
 import (
 	"errors"
-	"github.com/arong/dean/base"
-	"github.com/astaxie/beego/logs"
 	"sort"
 	"sync"
+
+	"github.com/arong/dean/base"
+	"github.com/astaxie/beego/logs"
 )
 
 // global manager
-var Cm ClassManager
+var Cm classManager
 
 const (
 	prefix = "高"
@@ -34,21 +35,21 @@ var (
 	ErrClassNotExist = errors.New("class not exist")
 )
 
-type ClassManager struct {
+type classManager struct {
 	idMap map[int]*Class
 	mutex sync.Mutex
 }
 
-func (cm *ClassManager) Lock() {
-	cm.mutex.Lock()
-}
+//func (cm *classManager) Lock() {
+//	cm.mutex.Lock()
+//}
+//
+//func (cm *classManager) UnLock() {
+//	cm.mutex.Unlock()
+//}
 
-func (cm *ClassManager) UnLock() {
-	cm.mutex.Unlock()
-}
-
-// maintain the relation between class and teacher
-func (cm *ClassManager) Init(data map[int]*Class) {
+// Init maintain the relation between class and teacher
+func (cm *classManager) Init(data map[int]*Class) {
 	if cm == nil {
 		return
 	}
@@ -60,7 +61,8 @@ func (cm *ClassManager) Init(data map[int]*Class) {
 	}
 }
 
-func (cm *ClassManager) AddClass(c *Class) (int, error) {
+// AddClass add new class into system
+func (cm *classManager) AddClass(c *Class) (int, error) {
 	var ret int
 
 	cm.mutex.Lock()
@@ -88,7 +90,8 @@ func (cm *ClassManager) AddClass(c *Class) (int, error) {
 	return c.ID, nil
 }
 
-func (cm *ClassManager) ModifyClass(r *Class) error {
+//ModifyClass modify class
+func (cm *classManager) ModifyClass(r *Class) error {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
@@ -133,7 +136,8 @@ func (cm *ClassManager) ModifyClass(r *Class) error {
 	return nil
 }
 
-func (cm *ClassManager) DelClass(list ClassIDList) (ClassIDList, error) {
+//DelClass delete class
+func (cm *classManager) DelClass(list ClassIDList) (ClassIDList, error) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 	failedList := ClassIDList{}
@@ -156,7 +160,8 @@ func (cm *ClassManager) DelClass(list ClassIDList) (ClassIDList, error) {
 	return failedList, nil
 }
 
-func (cm *ClassManager) Filter() base.CommList {
+// Filter  get class list with condition
+func (cm *classManager) Filter() base.CommList {
 	resp := base.CommList{}
 	list := ClassList{}
 	for _, v := range cm.idMap {
@@ -168,7 +173,8 @@ func (cm *ClassManager) Filter() base.CommList {
 	return resp
 }
 
-func (cm *ClassManager) GetAll() ItemList {
+// GetAll get all class list
+func (cm *classManager) GetAll() ItemList {
 	resp := ItemList{}
 	for _, v := range cm.idMap {
 		resp = append(resp, Item{ID: v.ID, Name: v.Name})
@@ -177,7 +183,8 @@ func (cm *ClassManager) GetAll() ItemList {
 	return resp
 }
 
-func (cm *ClassManager) GetInfo(id int) (*Class, error) {
+// GetInfo get class info
+func (cm *classManager) GetInfo(id int) (*Class, error) {
 	ret := &Class{}
 
 	if cm == nil {
@@ -192,3 +199,5 @@ func (cm *ClassManager) GetInfo(id int) (*Class, error) {
 	*ret = *val
 	return ret, nil
 }
+
+//func (cm *classManager)

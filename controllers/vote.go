@@ -2,9 +2,11 @@ package controllers
 
 import (
 	"encoding/json"
+
 	"github.com/arong/dean/models"
 
 	"fmt"
+
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 )
@@ -78,7 +80,7 @@ func (v *VoteController) Post() {
 		goto Out
 	}
 
-	err = models.Vm.CastVote(request.Scores)
+	err = models.VM.CastVote(request.Scores)
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out
@@ -130,7 +132,7 @@ func (v *VoteController) GetAll() {
 	resp := &BaseResponse{}
 	resp.Msg = msgSuccess
 	fmt.Println("fuck ")
-	obs := models.Vm.GetAll()
+	obs := models.VM.GetAll()
 	resp.Data = obs
 	v.Data["json"] = resp
 	fmt.Println(obs)

@@ -1,7 +1,7 @@
 CREATE TABLE `tbTeacher` (
   `iTeacherID`   int(11) unsigned   NOT NULL AUTO_INCREMENT                                           COMMENT '主键',
-  `iPrimarySubjectID`   int(11) unsigned   NOT NULL  DEFAULT 0                                        COMMENT '主授课程',
-  `eGender`      enum('1','2','3')  NOT NULL                                                          COMMENT '性别, 1: 男, 2: 女, 3: 未知',
+  `iSubjectID`   int(11) unsigned   NOT NULL DEFAULT 0                                                COMMENT '主授课程',
+  `eGender`      enum('1','2','3')  NOT NULL DEFAULT '3'                                              COMMENT '性别, 1: 男, 2: 女, 3: 未知',
   `vName`        varchar(32)        NOT NULL DEFAULT ''                                               COMMENT '姓名',
   `vMobile`      varchar(16)        NOT NULL DEFAULT ''                                               COMMENT '手机号',
   `vAddress`     varchar(128)       NOT NULL DEFAULT ''                                               COMMENT '家庭地址',

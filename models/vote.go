@@ -1,25 +1,15 @@
 package models
 
-// a global handler
-var Vm voteManager
+// VM a global handler
+var VM voteManager
 
 type voteManager struct {
 	// teacherID -> votes
-	votes map[UserID]*ScoreInfo
-}
-
-type VoteMeta struct {
-	TeacherID UserID // 教师ID
-	Score     int    // 评分
-}
-
-type ScoreInfo struct {
-	votes   []int
-	Average float64 `json:"average"`
+	votes map[int64]*ScoreInfo
 }
 
 func (vm *voteManager) Init() {
-	vm.votes = make(map[UserID]*ScoreInfo)
+	vm.votes = make(map[int64]*ScoreInfo)
 }
 
 // AddScore calculate the score of a teacher
@@ -47,13 +37,13 @@ func (vm *voteManager) CastVote(votes []*VoteMeta) error {
 	return nil
 }
 
-func (vm *voteManager) GetScore(teacherID UserID) (*ScoreInfo, error) {
+func (vm *voteManager) GetScore(teacherID int64) (*ScoreInfo, error) {
 	ret := &ScoreInfo{}
 	if val, ok := vm.votes[teacherID]; ok {
 		*ret = *val
 		return ret, nil
 	}
-	return ret, ErrNotExist
+	return ret, errNotExist
 }
 
 func (vm *voteManager) GetAll() []*ScoreInfo {

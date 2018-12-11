@@ -2,8 +2,9 @@ package controllers
 
 import (
 	"encoding/json"
-	"github.com/arong/dean/base"
 	"strconv"
+
+	"github.com/arong/dean/base"
 
 	"github.com/arong/dean/models"
 	"github.com/astaxie/beego"
@@ -43,7 +44,7 @@ func (c *ClassController) Add() {
 
 	if request.MasterID > 0 {
 		// check masterID
-		if !models.Tm.CheckID(request.MasterID) {
+		if !models.Tm.IsExist(request.MasterID) {
 			logs.Debug("[ClassController::Add] invalid head teacher id")
 			resp.Msg = "invalid head teacher id"
 			goto Out

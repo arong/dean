@@ -2,10 +2,11 @@ package controllers
 
 import (
 	"encoding/json"
+	"strconv"
+
 	"github.com/arong/dean/models"
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
-	"strconv"
 )
 
 // Operations about object
@@ -102,7 +103,7 @@ func (o *TeacherController) Get() {
 		goto Out
 	}
 
-	ret, err = models.Tm.GetTeacherInfo(models.UserID(id))
+	ret, err = models.Tm.GetTeacherInfo(id)
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out
@@ -153,11 +154,11 @@ func (o *TeacherController) GetAll() {
 }
 
 type DeleteTeacherReq struct {
-	IDList []models.UserID `json:"id_list"`
+	IDList []int64 `json:"id_list"`
 }
 
 type DeleteTeacherResp struct {
-	FailedList []models.UserID
+	FailedList []int64
 }
 
 // @Title Delete

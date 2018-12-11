@@ -8,6 +8,8 @@ var (
 )
 
 const (
+	// TypeStudent => student
 	TypeStudent = 1
+	// TypeTeacher => teacher
 	TypeTeacher = 2
 )
