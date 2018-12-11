@@ -3,16 +3,17 @@ package models
 import (
 	"database/sql"
 	"fmt"
+	"time"
+
 	"github.com/arong/dean/base"
 	"github.com/bearbin/go-age"
 	"github.com/pkg/errors"
-	"time"
 
-	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 	_ "github.com/go-sql-driver/mysql"
 )
 
+// Ma mysql agent
 var Ma mysqlAgent
 
 const (
@@ -22,25 +23,6 @@ const (
 
 type mysqlAgent struct {
 	db *sql.DB
-}
-
-type DBConfig struct {
-	User     string `yaml:"user"`
-	Password string `yaml:"password"`
-	Host     string `yaml:"host"`
-	Port     int    `yaml:"port"`
-	DBName   string `yaml:"DBName"`
-}
-
-func (c *DBConfig) GetConf() error {
-	c.User = beego.AppConfig.String("user")
-	c.Password = beego.AppConfig.String("password")
-	c.Host = beego.AppConfig.String("host")
-	c.Port, _ = beego.AppConfig.Int("port")
-	c.DBName = beego.AppConfig.String("dbName")
-
-	logs.Debug(*c)
-	return nil
 }
 
 func (ma *mysqlAgent) Init(conf *DBConfig) {
@@ -53,7 +35,7 @@ func (ma *mysqlAgent) Init(conf *DBConfig) {
 	}
 }
 
-// load data
+// LoadAllData load data
 func (ma *mysqlAgent) LoadAllData() error {
 	logs.Info("start loading data")
 
@@ -79,9 +61,9 @@ func (ma *mysqlAgent) LoadAllData() error {
 	Sm.subject = subjectMap
 
 	// load all teachers
-	teacherMap := make(map[UserID]*Teacher)
+	teacherMap := make(map[int64]*Teacher)
 	{
-		rows, err := ma.db.Query("SELECT iTeacherID,eGender,vName,vMobile,iPrimarySubjectID,dtBirthday,vAddress FROM tbTeacher WHERE eStatus = 1;")
+		rows, err := ma.db.Query("SELECT iTeacherID,eGender,vName,vMobile,iSubjectID,dtBirthday,vAddress FROM tbTeacher WHERE eStatus = 1;")
 		if err != nil {
 			logs.Warn("query database failed", "err", err)
 			return err
@@ -175,7 +157,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 
 		for rows.Next() {
 			u := StudentInfo{}
-			err = rows.Scan(&u.StudentID, &u.RealName, &u.RegisterID, &u.Gender,&u.ClassID)
+			err = rows.Scan(&u.StudentID, &u.RealName, &u.RegisterID, &u.Gender, &u.ClassID)
 			if err != nil {
 				continue
 			}
@@ -210,10 +192,10 @@ func (ma *mysqlAgent) LoadAllData() error {
 	return nil
 }
 
-// for teacher
+// InsertTeacher insert teacher info
 func (ma *mysqlAgent) InsertTeacher(t *Teacher) error {
 	// Prepare statement for inserting data
-	stmtIns, err := ma.db.Prepare("INSERT INTO `tbTeacher` (`eGender`, `vName`, `vMobile`, `dtBirthday`, `vAddress`, `iPrimarySubjectID`) VALUES (?,?,?,?,?,?);")
+	stmtIns, err := ma.db.Prepare("INSERT INTO `tbTeacher` (`eGender`, `vName`, `vMobile`, `dtBirthday`, `vAddress`, `iSubjectID`) VALUES (?,?,?,?,?,?);")
 	if err != nil {
 		return err
 	}
@@ -224,12 +206,13 @@ func (ma *mysqlAgent) InsertTeacher(t *Teacher) error {
 		return err
 	}
 	id, err := resp.LastInsertId()
-	t.TeacherID = UserID(id)
+	t.TeacherID = id
 	return nil
 }
 
+// UpdateTeacher update teacher info
 func (ma *mysqlAgent) UpdateTeacher(t *Teacher) error {
-	stmtIns, err := ma.db.Prepare("UPDATE tbTeacher SET eGender=?,vName=?,vMobile=?,dtBirthday=?,iPrimarySubjectID=?, vAddress=? WHERE iTeacherID=?;")
+	stmtIns, err := ma.db.Prepare("UPDATE tbTeacher SET eGender=?,vName=?,vMobile=?,dtBirthday=?,iSubjectID=?, vAddress=? WHERE iTeacherID=?;")
 	if err != nil {
 		return err
 	}
@@ -242,7 +225,8 @@ func (ma *mysqlAgent) UpdateTeacher(t *Teacher) error {
 	return nil
 }
 
-func (ma *mysqlAgent) DeleteTeacher(teacherID UserID) error {
+// DeleteTeacher delete teacher info
+func (ma *mysqlAgent) DeleteTeacher(teacherID int64) error {
 	stmtIns, err := ma.db.Prepare("UPDATE tbTeacher set eStatus=? WHERE iTeacherID=?;")
 	if err != nil {
 		return err
@@ -256,8 +240,7 @@ func (ma *mysqlAgent) DeleteTeacher(teacherID UserID) error {
 	return nil
 }
 
-// class
-// 增删改查
+// InsertClass insert class info
 func (ma *mysqlAgent) InsertClass(t *Class) error {
 	// Prepare statement for inserting data
 	stmtIns, err := ma.db.Prepare("INSERT INTO `tbClass` (`iGrade`, `iIndex`, `vName`,`iMasterID`,`iStartYear`,`eTerm`) VALUES (?,?,?,?,?,?);")
@@ -292,6 +275,7 @@ func (ma *mysqlAgent) InsertClass(t *Class) error {
 	return nil
 }
 
+// UpdateClass update class info
 func (ma *mysqlAgent) UpdateClass(t *Class) error {
 	// insert into tbClass
 	{
@@ -342,6 +326,7 @@ func (ma *mysqlAgent) UpdateClass(t *Class) error {
 	return nil
 }
 
+// DeleteClass delete class info
 func (ma *mysqlAgent) DeleteClass(id int) error {
 	stmtIns, err := ma.db.Prepare("UPDATE tbClass set eStatus=? WHERE iClassID=?;")
 	if err != nil {
@@ -372,8 +357,7 @@ func (ma *mysqlAgent) DeleteClass(id int) error {
 	return nil
 }
 
-// student
-// save student and password
+// InsertStudent insert teacher info
 func (ma *mysqlAgent) InsertStudent(u *StudentInfo) (int64, error) {
 	stmt, err := ma.db.Prepare("INSERT INTO `tbStudent`(`vRegistNumber`, `vName`, `eGender`,`iClassID`,`vAddress`,`dtBirthday`) VALUES (?,?,?,?,?,?)")
 	if err != nil {
@@ -381,7 +365,7 @@ func (ma *mysqlAgent) InsertStudent(u *StudentInfo) (int64, error) {
 		return 0, err
 	}
 
-	rs, err := stmt.Exec(u.RegisterID, u.RealName, u.Gender, u.ClassID, u.Address,u.Birthday)
+	rs, err := stmt.Exec(u.RegisterID, u.RealName, u.Gender, u.ClassID, u.Address, u.Birthday)
 	if err != nil {
 		logs.Warn("[mysqlAgent::InsertUser]failed", err)
 		return 0, err
@@ -395,6 +379,7 @@ func (ma *mysqlAgent) InsertStudent(u *StudentInfo) (int64, error) {
 	return id, nil
 }
 
+// UpdateStudent update student info
 func (ma *mysqlAgent) UpdateStudent(u *StudentInfo) error {
 	stmtIns, err := ma.db.Prepare("UPDATE tbStudent SET vRegistNumber=?,vName=?,eGender=?,iClassID=?,vAddress=?,dtBirthday=? WHERE iUserID=?;")
 	if err != nil {
@@ -402,7 +387,7 @@ func (ma *mysqlAgent) UpdateStudent(u *StudentInfo) error {
 	}
 	defer stmtIns.Close()
 
-	_, err = stmtIns.Exec(u.RegisterID, u.RealName, u.Gender, u.ClassID, u.Address,u.Birthday,u.StudentID)
+	_, err = stmtIns.Exec(u.RegisterID, u.RealName, u.Gender, u.ClassID, u.Address, u.Birthday, u.StudentID)
 	if err != nil {
 		logs.Warn("execute sql failed", "err", err)
 		return err
@@ -410,7 +395,8 @@ func (ma *mysqlAgent) UpdateStudent(u *StudentInfo) error {
 	return nil
 }
 
-func (ma *mysqlAgent) DeleteUser(uid int64) error {
+// DeleteUser delete student info
+func (ma *mysqlAgent) DeleteStudent(uid int64) error {
 	stmtIns, err := ma.db.Prepare("UPDATE tbStudent SET eStatus=? WHERE iUserID=?;")
 	if err != nil {
 		return err
@@ -425,8 +411,8 @@ func (ma *mysqlAgent) DeleteUser(uid int64) error {
 	return nil
 }
 
-// password
-func (ma *mysqlAgent) UpdatePassword(id UserID, password string) error {
+// UpdatePassword password
+func (ma *mysqlAgent) UpdatePassword(id int64, password string) error {
 	stmtIns, err := ma.db.Prepare("UPDATE tbPassword SET vPassword=? WHERE iUserID=?;")
 	if err != nil {
 		return err
@@ -441,6 +427,7 @@ func (ma *mysqlAgent) UpdatePassword(id UserID, password string) error {
 	return nil
 }
 
+// AddSubject add subject info
 func (ma *mysqlAgent) AddSubject(s *SubjectInfo) (int, error) {
 	stmtIns, err := ma.db.Prepare("INSERT INTO tbSubject (`vSubjectKey`, `vSubjectName`) VALUES (?,?);")
 	if err != nil {
@@ -462,6 +449,7 @@ func (ma *mysqlAgent) AddSubject(s *SubjectInfo) (int, error) {
 	return int(id), nil
 }
 
+// UpdateSubject update subject info
 func (ma *mysqlAgent) UpdateSubject(s *SubjectInfo) error {
 	stmtIns, err := ma.db.Prepare("UPDATE tbSubject SET `vSubjectKey`=? WHERE `iSubjectID`=?;")
 	if err != nil {
@@ -488,6 +476,7 @@ func (ma *mysqlAgent) UpdateSubject(s *SubjectInfo) error {
 	return nil
 }
 
+// DeleteSubject delete subject info
 func (ma *mysqlAgent) DeleteSubject(id int) error {
 	stmtIns, err := ma.db.Prepare("UPDATE tbSubject SET `eStatus`=? WHERE `iSubjectID`=?;")
 	if err != nil {

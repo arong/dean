@@ -6,4 +6,5 @@ const (
 	ErrInvalidInput     = 400
 	ErrInvalidParameter = 400
 	ErrPartialFailed    = 403
+	ErrInternal         = 500
 )

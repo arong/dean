@@ -2,13 +2,14 @@ package models
 
 import (
 	"encoding/json"
+	"time"
+
 	"github.com/astaxie/beego/logs"
 	"github.com/dgraph-io/badger"
 	"github.com/nbutton23/zxcvbn-go"
 	"github.com/nu7hatch/gouuid"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
-	"time"
 )
 
 var Ac accessControl
@@ -20,6 +21,7 @@ var (
 	ErrPasswordError = errors.New("password error")
 )
 
+// LoginInfo store the login info
 type LoginInfo struct {
 	LoginName string `json:"login_name"`
 	Password  string `json:"password"`
@@ -35,10 +37,12 @@ func init() {
 	Ac.tokenMap = make(map[string]*loginInfo)
 }
 
+// SetStore init handler
 func (ac *accessControl) SetStore(db *badger.DB) {
 	ac.store = db
 }
 
+// LoadToken load all authorised user info
 func (ac *accessControl) LoadToken() {
 	err := ac.store.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -68,6 +72,7 @@ func (ac *accessControl) LoadToken() {
 	}
 }
 
+// IsValidPassword check too see if password is valid
 func (ac *accessControl) IsValidPassword(p string) error {
 	if len(p) < 8 {
 		return ErrTooShort
@@ -86,6 +91,7 @@ func (ac *accessControl) IsValidPassword(p string) error {
 	return nil
 }
 
+// EncryptPassword encrypt password
 func (ac *accessControl) EncryptPassword(p string) (string, error) {
 	encrypted := ""
 	hash, err := bcrypt.GenerateFromPassword([]byte(p), bcrypt.DefaultCost)
@@ -100,13 +106,14 @@ func (ac *accessControl) EncryptPassword(p string) (string, error) {
 
 type loginInfo struct {
 	UserType     int
-	ID           UserID
+	ID           int64
 	LoginName    string
 	Password     string
 	ExpireTime   time.Time // expire time of the token
 	CurrentToken string
 }
 
+// Login: authorise user and issue token
 func (ac *accessControl) Login(req *LoginInfo) (string, error) {
 	token := ""
 
@@ -169,11 +176,13 @@ func (ac *accessControl) removeToken(token string) {
 	}
 }
 
+// VerifyToken check to see if the token is valid
 func (ac *accessControl) VerifyToken(token string) bool {
 	_, ok := ac.tokenMap[token]
 	return ok
 }
 
+// Logout: logout current user from system
 func (ac *accessControl) Logout(token string) error {
 	delete(ac.tokenMap, token)
 	return nil

@@ -1,8 +1,9 @@
 package models
 
 import (
-	"github.com/astaxie/beego/logs"
 	"sort"
+
+	"github.com/astaxie/beego/logs"
 )
 
 // Sm is global subject manager
@@ -13,26 +14,7 @@ type SubjectManager struct {
 	subject map[int]SubjectInfo
 }
 
-type SubjectInfo struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-	Key  string `json:"key"`
-}
-
-type SubjectList []SubjectInfo
-
-func (tl SubjectList) Len() int {
-	return len(tl)
-}
-
-func (tl SubjectList) Swap(i, j int) {
-	tl[i], tl[j] = tl[j], tl[i]
-}
-
-func (tl SubjectList) Less(i, j int) bool {
-	return tl[i].ID < tl[j].ID
-}
-
+// Add add new subject into manager
 func (sm *SubjectManager) Add(s SubjectInfo) (int, error) {
 	var err error
 	for _, v := range sm.subject {
@@ -52,6 +34,7 @@ func (sm *SubjectManager) Add(s SubjectInfo) (int, error) {
 	return s.ID, nil
 }
 
+// Update update the key of subject
 func (sm *SubjectManager) Update(s SubjectInfo) error {
 	var err error
 	curr, ok := sm.subject[s.ID]
@@ -85,6 +68,7 @@ func (sm *SubjectManager) Update(s SubjectInfo) error {
 	return nil
 }
 
+// Delete remove subject of id
 func (sm *SubjectManager) Delete(id int) error {
 	var err error
 	if _, ok := sm.subject[id]; !ok {
@@ -103,9 +87,9 @@ func (sm *SubjectManager) Delete(id int) error {
 }
 
 // GetAll return all subject id list in current manager
-func (s *SubjectManager) GetAll() SubjectList {
+func (sm *SubjectManager) GetAll() SubjectList {
 	ret := SubjectList{}
-	for k, v := range s.subject {
+	for k, v := range sm.subject {
 		ret = append(ret, SubjectInfo{ID: k, Name: v.Name, Key: v.Key})
 	}
 
@@ -114,11 +98,21 @@ func (s *SubjectManager) GetAll() SubjectList {
 }
 
 // CheckSubjectList check to see if all id in input list exist
-func (s *SubjectManager) CheckSubjectList(list []int) bool {
+func (sm *SubjectManager) CheckSubjectList(list []int) bool {
 	for _, v := range list {
-		if _, ok := s.subject[v]; !ok {
+		if _, ok := sm.subject[v]; !ok {
 			return false
 		}
 	}
 	return true
+}
+
+// IsExist check to see if exist
+func (sm *SubjectManager) IsExist(id int) bool {
+	_, ok := sm.subject[id]
+	return ok
+}
+
+func (sm *SubjectManager) getSubjectName(id int) string {
+	return sm.subject[id].Name
 }
