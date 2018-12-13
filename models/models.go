@@ -4,11 +4,12 @@ import (
 	"sort"
 	"time"
 
+	"github.com/bearbin/go-age"
+
 	"github.com/astaxie/beego"
 
 	"github.com/arong/dean/base"
 	"github.com/astaxie/beego/logs"
-	age "github.com/bearbin/go-age"
 	"github.com/pkg/errors"
 )
 
@@ -220,7 +221,6 @@ func (il InstructorList) Deduplicate() InstructorList {
 		val := v
 		newList = append(newList, val)
 	}
-	logs.Info("[]", "newList", newList)
 	return newList
 }
 
@@ -267,9 +267,12 @@ func (il InstructorList) Diff(r InstructorList) (all, add, del InstructorList) {
 
 // questionnaire zone
 type OptionInfo struct {
-	OptionID int    `json:"option_id"`
-	Index    int    `json:"index"`
-	Option   string `json:"option"`
+	Index  int    `json:"index"`
+	Option string `json:"option"`
+}
+
+func (o OptionInfo) Equal(r OptionInfo) bool {
+	return o.Index == r.Index && o.Option == r.Option
 }
 
 func (o OptionInfo) Check() error {
@@ -316,14 +319,57 @@ func (ol OptionList) Check() error {
 	return nil
 }
 
+type QCheckBox struct {
+	Choice OptionList
+}
+
+type QScore struct {
+	Min int
+	Max int
+}
+
+type QStar struct {
+	Count int
+}
+
 type QuestionInfo struct {
-	QuestionID int        `json:"question_id"`
-	Index      int        `json:"index"`
-	Type       int        `json:"type"`
-	Required   bool       `json:"required"`
-	Question   string     `json:"question"`
-	Options    OptionList `json:"options"`
-	Scope      []int      `json:"scope"` // which subject will this question apply to
+	QuestionnaireID int         `json:"questionnaire_id"`
+	QuestionID      int         `json:"question_id"`
+	Index           int         `json:"index"`
+	Type            int         `json:"type"`
+	Required        bool        `json:"required"`
+	Question        string      `json:"question"`
+	Data            interface{} `json:"data"`
+	Options         OptionList  `json:"options"`
+	Scope           []int       `json:"scope"` // which subject will this question apply to
+}
+
+func (q QuestionInfo) Equal(r QuestionInfo) bool {
+	if q.QuestionID != r.QuestionID ||
+		q.Index != r.Index ||
+		q.Type != r.Type ||
+		q.Required != r.Required ||
+		q.Question != r.Question ||
+		len(q.Options) != len(r.Options) ||
+		len(q.Scope) != len(r.Scope) {
+		return false
+	}
+
+	for k, v := range q.Scope {
+		if r.Scope[k] != v {
+			return false
+		}
+	}
+
+	sort.Sort(q.Options)
+	sort.Sort(r.Options)
+
+	for k, v := range q.Options {
+		if !r.Options[k].Equal(v) {
+			return false
+		}
+	}
+	return true
 }
 
 func (q QuestionInfo) Check() error {
@@ -393,9 +439,58 @@ type QuestionnaireInfo struct {
 	Title           string       `json:"title"`
 	StartTime       string       `json:"start"`
 	StopTime        string       `json:"stop"`
+	Label           string       `json:"label"`
 	Questions       QuestionList `json:"questions"`
+	Editor          string       `json:"editor"`
 	startTime       time.Time
 	stopTime        time.Time
+}
+
+func (q *QuestionnaireInfo) Check() error {
+	if q.Title == "" {
+		return errors.New("invalid title")
+	}
+
+	if q.Status != QStatusDraft && q.Status != QStatusPublished {
+		return errors.New("invalid draft status")
+	}
+
+	var err error
+	if q.StartTime != "" {
+		q.startTime, err = time.Parse(base.DateTimeFormat, q.StartTime)
+		if err != nil {
+			return errors.New("invalid start time format")
+		}
+	}
+
+	if q.StopTime != "" {
+		q.stopTime, err = time.Parse(base.DateTimeFormat, q.StopTime)
+		if err != nil {
+			return errors.New("invalid stop time format")
+		}
+	} else {
+		return errors.New("stop time needed")
+	}
+
+	if q.stopTime.Before(time.Now()) {
+		return errors.New("invalid stop time")
+	}
+
+	if q.startTime.After(q.stopTime) {
+		return errors.New("invalid time range")
+	}
+
+	return err
+}
+
+func (q QuestionnaireInfo) Equal(r QuestionnaireInfo) bool {
+	if q.Status != r.Status ||
+		q.Title != r.Title ||
+		q.StartTime != r.StartTime ||
+		q.StopTime != r.StopTime {
+		return false
+	}
+	return true
 }
 
 type QuestionnaireList []QuestionnaireInfo
@@ -433,29 +528,54 @@ const (
 	QStatusExpired   = 4
 )
 
-func (q QuestionnaireInfo) Check() error {
-	if q.Title == "" {
-		return errors.New("invalid title")
-	}
+type AnswerInfo struct {
+	QuestionID int
+	Answer     interface{}
+}
+type AnswerList []*AnswerInfo
 
-	if q.Status != QStatusDraft && q.Status != QStatusPublished {
-		return errors.New("invalid draft status")
-	}
+func (al AnswerList) Len() int {
+	return len(al)
+}
+func (al AnswerList) Swap(i, j int) {
+	al[i], al[j] = al[j], al[i]
+}
+func (al AnswerList) Less(i, j int) bool {
+	return al[i].QuestionID < al[j].QuestionID
+}
+func (al AnswerList) Check() error {
+	tmp := make(map[int]bool)
+	for _, v := range al {
+		if v.QuestionID == 0 {
+			return errNotExist
+		}
 
-	if q.StopTime != "" && q.stopTime.Before(time.Now()) {
-		return errors.New("invalid stop time")
+		if _, ok := tmp[v.QuestionID]; ok {
+			return errExist
+		} else {
+			tmp[v.QuestionID] = true
+		}
 	}
+	return nil
+}
 
-	if q.StartTime != "" && q.StopTime != "" && q.startTime.After(q.stopTime) {
-		return errors.New("invalid time range")
+type TeacherAnswer struct {
+	TeacherID int64
+	Answers   AnswerList
+}
+type TeacherAnswerList []TeacherAnswer
+
+type QuestionnaireSubmit struct {
+	QuestionnaireID int
+	StudentID       int64
+	TeacherAnswers  TeacherAnswerList
+}
+
+func (q QuestionnaireSubmit) Check() error {
+	if q.QuestionnaireID == 0 {
+		return errNotExist
 	}
-
-	if len(q.Questions) == 0 {
-		return errors.New("empty questions")
-	}
-	err := q.Questions.Check()
-
-	return err
+	return nil
 }
 
 // ScorePair is score of single subject
@@ -670,4 +790,34 @@ type VoteMeta struct {
 type ScoreInfo struct {
 	votes   []int
 	Average float64 `json:"average"`
+}
+
+// analyzer for choice or selection type
+type TeacherScore struct {
+	Average float64
+	Total   int
+	Count   int
+	Meta    map[int]sourceList // option and its count
+	Remark  []string           // remark for teacher
+}
+
+type sourceMeta Filter
+type sourceList []sourceMeta
+
+func (sm sourceList) Len() int {
+	return len(sm)
+}
+func (sm sourceList) Swap(i, j int) {
+	sm[i], sm[j] = sm[j], sm[i]
+}
+func (sm sourceList) Less(i, j int) bool {
+	l := sm[i]
+	r := sm[j]
+	if l.Grade < r.Grade {
+		return true
+	} else if l.Grade > r.Grade {
+		return false
+	} else {
+		return l.Index < r.Index
+	}
 }

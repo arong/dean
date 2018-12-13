@@ -6,4 +6,7 @@ const (
 
 	// 最低分数
 	MinScore = 0
+
+	// Private Key
+	Private = "private"
 )

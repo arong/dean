@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+
 	"github.com/arong/dean/base"
 	"github.com/arong/dean/models"
 	"github.com/astaxie/beego"
@@ -20,7 +21,7 @@ type AuthController struct {
 // @router /login [post]
 func (l *AuthController) Login() {
 	resp := &BaseResponse{Code: -1}
-	req := models.LoginInfo{}
+	req := models.LoginRequest{}
 	token := ""
 
 	err := json.Unmarshal([]byte(l.Ctx.Input.RequestBody), &req)

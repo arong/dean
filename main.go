@@ -2,6 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
+
 	"github.com/arong/dean/base"
 	"github.com/arong/dean/controllers"
 	"github.com/arong/dean/models"
@@ -11,10 +16,6 @@ import (
 	"github.com/astaxie/beego/logs"
 	"github.com/astaxie/beego/plugins/cors"
 	"github.com/dgraph-io/badger"
-	"os"
-	"os/signal"
-	"strconv"
-	"syscall"
 )
 
 var filterUser = func(ctx *context.Context) {
@@ -61,10 +62,15 @@ var filterUser = func(ctx *context.Context) {
 		}
 	}
 
-	if !models.Ac.VerifyToken(request.Token) {
-		if ctx.Request.URL.Path != "/api/v1/dean/auth/login" {
-			goto Out
+	// store login info to request context
+	{
+		loginInfo, ok := models.Ac.VerifyToken(request.Token)
+		if !ok {
+			if ctx.Request.URL.Path != "/api/v1/dean/auth/login" {
+				goto Out
+			}
 		}
+		ctx.Input.SetData(base.Private, loginInfo)
 	}
 
 	if ctx.Request.URL.Path == "/api/v1/dean/auth/logout" {

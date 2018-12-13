@@ -1,7 +1,6 @@
 CREATE TABLE `tbStudent`  (
   `iUserID`       bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT                                           COMMENT '主键',
-  `iGrade`        tinyint(1) UNSIGNED NOT NULL DEFAULT '0'                                              COMMENT '年级编号',
-  `iIndex`        tinyint(2) UNSIGNED NOT NULL DEFAULT '0'                                              COMMENT '班级编号',
+  `iClassID`      tinyint(1) UNSIGNED NOT NULL DEFAULT '0'                                              COMMENT '年级编号',
   `vRegistNumber` varchar(16)         NOT NULL DEFAULT ''                                               COMMENT '学号',
   `vUserName`     varchar(32)         NOT NULL DEFAULT ''                                               COMMENT '学生姓名',
   `eGender`       enum('1','2','3')   NOT NULL DEFAULT '3'                                              COMMENT '性别： 1男 2女 3未知',

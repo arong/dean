@@ -6,8 +6,8 @@ import (
 
 	"github.com/astaxie/beego/logs"
 	"github.com/dgraph-io/badger"
-	"github.com/nbutton23/zxcvbn-go"
 	"github.com/google/uuid"
+	"github.com/nbutton23/zxcvbn-go"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -22,19 +22,24 @@ var (
 )
 
 // LoginInfo store the login info
-type LoginInfo struct {
+type LoginRequest struct {
 	LoginName string `json:"login_name"`
 	Password  string `json:"password"`
 }
 
 type accessControl struct {
-	loginMap map[string]*loginInfo
-	tokenMap map[string]*loginInfo
-	store    *badger.DB
+	loginMap        map[string]*LoginInfo
+	tokenMap        map[string]*LoginInfo
+	store           *badger.DB
+	defaultPassword string // default password for student
+}
+
+type resetPassReq struct {
+	Password string
 }
 
 func init() {
-	Ac.tokenMap = make(map[string]*loginInfo)
+	Ac.tokenMap = make(map[string]*LoginInfo)
 }
 
 // SetStore init handler
@@ -52,7 +57,7 @@ func (ac *accessControl) LoadToken() {
 		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 			k := item.Key()
-			loginInfo := loginInfo{}
+			loginInfo := LoginInfo{}
 			err := item.Value(func(v []byte) error {
 				err := json.Unmarshal(v, &loginInfo)
 				//fmt.Printf("key=%s, value=%s\n", k, v)
@@ -104,7 +109,7 @@ func (ac *accessControl) EncryptPassword(p string) (string, error) {
 	return encrypted, nil
 }
 
-type loginInfo struct {
+type LoginInfo struct {
 	UserType     int
 	ID           int64
 	LoginName    string
@@ -114,7 +119,7 @@ type loginInfo struct {
 }
 
 // Login: authorise user and issue token
-func (ac *accessControl) Login(req *LoginInfo) (string, error) {
+func (ac *accessControl) Login(req *LoginRequest) (string, error) {
 	token := ""
 
 	l, ok := ac.loginMap[req.LoginName]
@@ -123,14 +128,13 @@ func (ac *accessControl) Login(req *LoginInfo) (string, error) {
 		return token, errNotExist
 	}
 
-	err := bcrypt.CompareHashAndPassword([]byte(l.Password), []byte(req.Password))
-	if err != nil {
-		logs.Info("[accessControl::Login] failed", err)
-		return token, ErrPasswordError
+	if req.Password != l.Password {
+		logs.Info("[accessControl::Login] password not match")
+		return token, errPermission
 	}
 
 	if l.CurrentToken != "" {
-		logs.Debug("remove token", l.CurrentToken)
+		logs.Debug("[accessControl::Login] remove token", l.CurrentToken)
 		delete(ac.tokenMap, l.CurrentToken)
 		ac.removeToken(l.CurrentToken)
 	}
@@ -145,7 +149,35 @@ func (ac *accessControl) Login(req *LoginInfo) (string, error) {
 	return token, nil
 }
 
-func (ac *accessControl) storeToken(l *loginInfo) {
+// UpdatePassword will update current user and request a new login
+func (ac *accessControl) UpdatePassword(req *LoginInfo) error {
+	l, ok := ac.loginMap[req.LoginName]
+	if !ok {
+		logs.Debug("[accessControl::UpdatePassword] user not found", req.LoginName)
+		return errNotExist
+	}
+
+	l.Password = req.Password
+
+	if l.CurrentToken != "" {
+		delete(ac.tokenMap, l.CurrentToken)
+		ac.removeToken(l.CurrentToken)
+		l.CurrentToken = ""
+	}
+	return nil
+}
+
+// ResetAllStudentPassword reset all students' password to default value
+func (ac *accessControl) ResetAllStudentPassword(req *resetPassReq) error {
+	if req.Password == ac.defaultPassword {
+		return errNotExist
+	}
+
+	ac.defaultPassword = req.Password
+	return nil
+}
+
+func (ac *accessControl) storeToken(l *LoginInfo) {
 	buffer, err := json.Marshal(l)
 	if err != nil {
 		logs.Error("[accessControl::storeToken] fatal error", err)
@@ -176,9 +208,12 @@ func (ac *accessControl) removeToken(token string) {
 }
 
 // VerifyToken check to see if the token is valid
-func (ac *accessControl) VerifyToken(token string) bool {
-	_, ok := ac.tokenMap[token]
-	return ok
+func (ac *accessControl) VerifyToken(token string) (LoginInfo, bool) {
+	l, ok := ac.tokenMap[token]
+	if !ok {
+		return LoginInfo{}, false
+	}
+	return *l, ok
 }
 
 // Logout: logout current user from system

@@ -2,6 +2,8 @@ package models
 
 import (
 	"database/sql"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -44,6 +46,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 	{
 		rows, err := ma.db.Query("select iSubjectID,vSubjectKey, vSubjectName from tbSubject where eStatus =1;")
 		if err != nil {
+			logs.Error("[LoadAllData] failed to load tbSubject", "err", err)
 			return err
 		}
 		defer rows.Close()
@@ -65,7 +68,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 	{
 		rows, err := ma.db.Query("SELECT iTeacherID,eGender,vName,vMobile,iSubjectID,dtBirthday,vAddress FROM tbTeacher WHERE eStatus = 1;")
 		if err != nil {
-			logs.Warn("query database failed", "err", err)
+			logs.Error("[LoadAllData] failed to load tbTeacher", "err", err)
 			return err
 		}
 		defer rows.Close()
@@ -97,6 +100,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 	{
 		rows, err := ma.db.Query("SELECT iClassID,iGrade,iIndex,vName,iMasterID,iStartYear,eTerm FROM tbClass WHERE eStatus = 1;")
 		if err != nil {
+			logs.Error("[LoadAllData] failed to load tbClass", "err", err)
 			return err
 		}
 		defer rows.Close()
@@ -116,6 +120,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 	{
 		rows, err := ma.db.Query("SELECT iClassID,iTeacherID,iSubjectID FROM tbClassTeacherRelation WHERE eStatus=1;")
 		if err != nil {
+			logs.Error("[LoadAllData] failed to load tbClassTeacherRelation", "err", err)
 			return err
 		}
 		defer rows.Close()
@@ -151,6 +156,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 	{
 		rows, err := ma.db.Query("SELECT iUserID,vUserName,vRegistNumber,eGender,iClassID FROM tbStudent WHERE eStatus = 1;")
 		if err != nil {
+			logs.Error("[LoadAllData] failed to load tbStudent", "err", err)
 			return err
 		}
 		defer rows.Close()
@@ -168,16 +174,17 @@ func (ma *mysqlAgent) LoadAllData() error {
 	Um.Init(userMap)
 
 	// init access control
-	loginMap := make(map[string]*loginInfo)
+	loginMap := make(map[string]*LoginInfo)
 	{
 		rows, err := ma.db.Query("SELECT iUserID,eType,vLoginName,vPassword FROM tbPassword;")
 		if err != nil {
+			logs.Error("[LoadAllData] failed to load tbPassword", "err", err)
 			return err
 		}
 		defer rows.Close()
 
 		for rows.Next() {
-			tmp := loginInfo{}
+			tmp := LoginInfo{}
 			err = rows.Scan(&tmp.ID, &tmp.UserType, &tmp.LoginName, &tmp.Password)
 			if err != nil {
 				logs.Error("scan failed", err)
@@ -191,23 +198,29 @@ func (ma *mysqlAgent) LoadAllData() error {
 	// init questionnaire
 	questionMap := make(map[int]*QuestionnaireInfo)
 	{
-		rows, err := ma.db.Query("SELECT iQuestionnaireID,vTitle,dtStartTime,dtStopTime,eDraftStatus FROM tbQuestionnaire;")
+		rows, err := ma.db.Query("SELECT iQuestionnaireID,vTitle,dtStartTime,dtStopTime,eDraftStatus,vEditorName FROM tbQuestionnaire;")
 		if err != nil {
+			logs.Error("[LoadAllData] failed to load tbQuestionnaire", "err", err)
 			return err
 		}
 		defer rows.Close()
 
 		for rows.Next() {
 			tmp := QuestionnaireInfo{}
-			err = rows.Scan(&tmp.QuestionnaireID, &tmp.Title, &tmp.StartTime, &tmp.StopTime, &tmp.Status)
+			err = rows.Scan(&tmp.QuestionnaireID, &tmp.Title, &tmp.StartTime, &tmp.StopTime, &tmp.Status, &tmp.Editor)
 			if err != nil {
-				logs.Error("scan failed", err)
+				logs.Error("scan tbQuestionnaire failed", err)
 				continue
 			}
+			decoded, err := base64.StdEncoding.DecodeString(tmp.Title)
+			if err != nil {
+				continue
+			}
+			tmp.Title = string(decoded)
 			questionMap[tmp.QuestionnaireID] = &tmp
 		}
 	}
-	Qm.questionnaires = questionMap
+	QuestionnaireManager.Init(questionMap)
 
 	logs.Info("load data success")
 	return nil
@@ -524,22 +537,65 @@ func (ma *mysqlAgent) DeleteSubject(id int) error {
 	return nil
 }
 
+// Questionnaire zone
+
+// AddQuestionnaire add new questionnaire to current system
 func (ma *mysqlAgent) AddQuestionnaire(q *QuestionnaireInfo) error {
-	stmtIns, err := ma.db.Prepare("INSERT tbQuestionnaire (`vTitle`,`dtStartTime`,`dtStopTime`,`eDraftStatus`) VALUES (?,?,?,?);")
+
+	stmtIns, err := ma.db.Prepare("INSERT INTO tbQuestionnaire (`vTitle`,`dtStartTime`,`dtStopTime`,`eDraftStatus`,`vEditorName`) VALUES (?,?,?,?,?);")
 	if err != nil {
 		return err
 	}
 	defer stmtIns.Close()
 
-	insQuestion, err := ma.db.Prepare("INSERT INTO `tbQuestion` (`iQuestionnaireID`,`iIndex`,`vQuestion`, `eType`,`bRequired`) VALUES (?,?,?,?);")
+	resp, err := stmtIns.Exec(base64.StdEncoding.EncodeToString([]byte(q.Title)), q.StartTime, q.StopTime, q.Status, q.Editor)
 	if err != nil {
+		logs.Warn("[AddQuestionnaire] execute sql failed", "err", err)
 		return err
 	}
 
-	insOption, err := ma.db.Prepare("INSERT INTO `tbOption` (`iQuestionID`,`iIndex`,`vOption`) VALUES (?,?,?);")
+	tmp, err := resp.LastInsertId()
+	if err != nil {
+		logs.Warn("[AddQuestionnaire] insert tbQuestionnaire error", "err", err)
+		return err
+	}
+	q.QuestionnaireID = int(tmp)
+	return nil
+}
+
+// UpdateQuestionnaire modify questionnaire info, not its
+func (ma *mysqlAgent) UpdateQuestionnaire(q *QuestionnaireInfo) error {
+	stmtIns, err := ma.db.Prepare("UPDATE tbQuestionnaire SET `vTitle`=?,`dtStartTime`=?,`dtStopTime`=?,`vEditorName`=? WHERE iQuestionnaireID=? AND `eDraftStatus`=1")
 	if err != nil {
 		return err
 	}
+	defer stmtIns.Close()
+
+	resp, err := stmtIns.Exec(base64.StdEncoding.EncodeToString([]byte(q.Title)), q.StartTime, q.StopTime, q.Editor, q.QuestionnaireID)
+	if err != nil {
+		logs.Warn("[UpdateQuestionnaire] execute sql failed", "err", err)
+		return err
+	}
+
+	rowAffected, err := resp.RowsAffected()
+	if err != nil {
+		logs.Warn("[UpdateQuestionnaire] database error")
+		return err
+	}
+
+	if rowAffected != 1 {
+		logs.Warn("[UpdateQuestionnaire] data error")
+	}
+	return nil
+}
+
+func (ma *mysqlAgent) ExpireQuestionnaire(q *QuestionnaireInfo) error {
+	stmtIns, err := ma.db.Prepare("UPDATE tbQuestionnaire (`vTitle`,`dtStartTime`,`dtStopTime`,`eDraftStatus`) VALUES (?,?,?,?);")
+	if err != nil {
+		return err
+	}
+	defer stmtIns.Close()
+
 	resp, err := stmtIns.Exec(eStatusDeleted, q.Title, q.StartTime, q.StopTime, q.Status)
 	if err != nil {
 		logs.Warn("[AddQuestionnaire] execute sql failed", "err", err)
@@ -552,38 +608,122 @@ func (ma *mysqlAgent) AddQuestionnaire(q *QuestionnaireInfo) error {
 		return err
 	}
 	q.QuestionnaireID = int(tmp)
+	return nil
+}
 
-	// insert into class teacher relation table
-	{
-		for _, v := range q.Questions {
-			resp, err = insQuestion.Exec(q.QuestionnaireID, v.Index, v.Question, v.Type, v.Required)
-			if err != nil {
-				logs.Warn("[AddQuestionnaire] execute sql failed", "err", err)
-				return err
-			}
-			tmp, err = resp.LastInsertId()
-			if err != nil {
-				logs.Error("[AddQuestionnaire] insert tbQuestion failed", "question", v)
-				return err
-			}
-			v.QuestionID = int(tmp)
+func (ma *mysqlAgent) DeleteQuestionnaire(id int) error {
+	stmtIns, err := ma.db.Prepare("DELETE FROM tbQuestionnaire WHERE `iQuestionnaireID`=? AND `eDraftStatus`=?;")
+	if err != nil {
+		return err
+	}
+	defer stmtIns.Close()
 
-			for _, val := range v.Options {
-				resp, err := insOption.Exec(v.QuestionID, val.Index, val.Option)
-				if err != nil {
-					logs.Error("[AddQuestionnaire] insert tbOption error")
-					return err
-				}
+	resp, err := stmtIns.Exec(id, QStatusDraft)
+	if err != nil {
+		logs.Warn("[DeleteQuestionnaire] execute sql failed", "err", err)
+		return err
+	}
 
-				tmp, err = resp.LastInsertId()
-				if err != nil {
-					logs.Error("[AddQuestionnaire] insert tbOption error")
-					return err
-				}
+	count, err := resp.RowsAffected()
+	if err != nil {
+		logs.Warn("[DeleteQuestionnaire] unexpected update rows", "err", err)
+		return err
+	}
 
-				val.OptionID = int(tmp)
-			}
-		}
+	if count != 1 {
+		logs.Warn("[DeleteQuestionnaire] duplicated data found")
+		return errors.New("data error")
 	}
 	return nil
+}
+
+func (ma *mysqlAgent) AddQuestion(questionnaireID int, info *QuestionInfo) (int, error) {
+	buff, err := json.Marshal(info.Options)
+	if err != nil {
+		return 0, err
+	}
+	encoded := base64.StdEncoding.EncodeToString(buff)
+	stmtIns, err := ma.db.Prepare("INSERT INTO tbQuestion (`iQuestionnaireID`,`vQuestion`,`iIndex`,`eType`,`bRequired`,`vContent`) VALUES (?,?,?,?,?)")
+	if err != nil {
+		return 0, err
+	}
+	defer stmtIns.Close()
+
+	resp, err := stmtIns.Exec(questionnaireID, info.Question, info.Index, info.Type, func() int {
+		if info.Required {
+			return 1
+		} else {
+			return 0
+		}
+	}, encoded)
+
+	if err != nil {
+		logs.Warn("[AddQuestion] execute sql failed", "err", err)
+		return 0, err
+	}
+
+	id, err := resp.LastInsertId()
+	if err != nil {
+		logs.Warn("[AddQuestion] unexpected update rows", "err", err)
+		return 0, err
+	}
+
+	return int(id), nil
+}
+
+func (ma *mysqlAgent) UpdateQuestion(questionnaireID int, info *QuestionInfo) (int, error) {
+	buff, err := json.Marshal(info.Options)
+	if err != nil {
+		return 0, err
+	}
+	encoded := base64.StdEncoding.EncodeToString(buff)
+	stmtIns, err := ma.db.Prepare("UPDATE tbQuestion SET `vQuestion`=?,`iIndex`=?,`eType`=?,`bRequired`=?,`vContent`=? WHERE iQuestionID=?")
+	if err != nil {
+		return 0, err
+	}
+	defer stmtIns.Close()
+
+	resp, err := stmtIns.Exec(info.Question, info.Index, info.Type, func() int {
+		if info.Required {
+			return 1
+		} else {
+			return 0
+		}
+	}, encoded, info.QuestionID)
+
+	if err != nil {
+		logs.Warn("[UpdateQuestion] execute sql failed", "err", err)
+		return 0, err
+	}
+
+	id, err := resp.LastInsertId()
+	if err != nil {
+		logs.Warn("[UpdateQuestion] unexpected update rows", "err", err)
+		return 0, err
+	}
+
+	return int(id), nil
+}
+
+func (ma *mysqlAgent) DeleteQuestion(questionID int) (int, error) {
+	stmtIns, err := ma.db.Prepare("DELETE FROM tbQuestion WHERE iQuestionID = ?")
+	if err != nil {
+		return 0, err
+	}
+	defer stmtIns.Close()
+
+	resp, err := stmtIns.Exec(questionID)
+
+	if err != nil {
+		logs.Warn("[DeleteQuestion] execute sql failed", "err", err)
+		return 0, err
+	}
+
+	id, err := resp.LastInsertId()
+	if err != nil {
+		logs.Warn("[DeleteQuestion] unexpected update rows", "err", err)
+		return 0, err
+	}
+
+	return int(id), nil
 }
