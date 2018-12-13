@@ -14,6 +14,10 @@ type QuestionController struct {
 	beego.Controller
 }
 
+type QuestionFilter struct {
+	QuestionnaireID int `json:"questionnaire_id"`
+}
+
 // @Title CreateUser
 // @Description create users
 // @Param	body		body 	models.User	true		"body for user content"
@@ -21,21 +25,21 @@ type QuestionController struct {
 // @Failure 403 body is empty
 // @router /add [post]
 func (q *QuestionController) Add() {
-	var id int64
+	var id int
 	var question models.QuestionInfo
 	resp := BaseResponse{Code: -1}
 
 	err := json.Unmarshal(q.Ctx.Input.RequestBody, &question)
 	if err != nil {
-		logs.Debug("[QuestionnaireController::Add] invalid json", "err", err)
+		logs.Debug("[QuestionController::Add] invalid json", "err", err)
 		resp.Msg = msgInvalidJSON
 		goto Out
 	}
 
 	if question.QuestionnaireID == 0 {
-		logs.Debug("[QuestionnaireController::Add] invalid questionnaire id")
+		logs.Debug("[QuestionController::Add] invalid questionnaire id")
 		resp.Code = base.ErrInvalidParameter
-		resp.Msg = "no id shall be specified"
+		resp.Msg = "invalid questionnaire id"
 		goto Out
 	}
 
@@ -46,10 +50,10 @@ func (q *QuestionController) Add() {
 		goto Out
 	}
 
-	err = models.QuestionnaireManager.AddQuestion(&question)
+	id, err = models.QuestionnaireManager.AddQuestion(&question)
 	if err != nil {
 		resp.Msg = err.Error()
-		logs.Info("[QuestionnaireController::Add] AddUser failed")
+		logs.Info("[QuestionController::Add] AddUser failed")
 		goto Out
 	}
 
@@ -69,26 +73,28 @@ Out:
 // @router /update [post]
 func (q *QuestionController) Update() {
 	var id int64
-	var questionInfo models.QuestionInfo
+	var request models.QuestionInfo
 	resp := BaseResponse{Code: -1}
 
-	err := json.Unmarshal(q.Ctx.Input.RequestBody, &questionInfo)
+	err := json.Unmarshal(q.Ctx.Input.RequestBody, &request)
 	if err != nil {
 		logs.Debug("[QuestionController::Update] invalid json", "err", err)
 		resp.Msg = msgInvalidJSON
 		goto Out
 	}
 
-	if questionInfo.QuestionID == 0 {
+	if request.QuestionID == 0 {
 		logs.Debug("[QuestionController::Update] invalid question id")
 		resp.Code = base.ErrInvalidParameter
 		goto Out
 	}
 
-	err = models.QuestionnaireManager.UpdateQuestion(&questionInfo)
+	request.Options = request.Options.FilterEmpty()
+
+	err = models.QuestionnaireManager.UpdateQuestion(&request)
 	if err != nil {
 		resp.Msg = err.Error()
-		logs.Info("[QuestionController::Update] AddUser failed")
+		logs.Info("[QuestionController::Update] UpdateQuestion failed")
 		goto Out
 	}
 
@@ -100,10 +106,6 @@ Out:
 	q.ServeJSON()
 }
 
-type delReq struct {
-	QuestionID int
-}
-
 // @Title DeleteQuestion
 // @Description create users
 // @Param	body		body 	models.User	true		"body for user content"
@@ -112,23 +114,23 @@ type delReq struct {
 // @router /delete [post]
 func (q *QuestionController) Delete() {
 	var id int64
-	var user delReq
+	var request base.SingleID
 	resp := BaseResponse{Code: -1}
 
-	err := json.Unmarshal(q.Ctx.Input.RequestBody, &user)
+	err := json.Unmarshal(q.Ctx.Input.RequestBody, &request)
 	if err != nil {
 		logs.Debug("[QuestionController::Delete] invalid json", "err", err)
 		resp.Msg = msgInvalidJSON
 		goto Out
 	}
 
-	if user.QuestionID == 0 {
+	if request.ID == 0 {
 		logs.Debug("[QuestionController::Delete] invalid question id")
 		resp.Code = base.ErrInvalidParameter
 		goto Out
 	}
 
-	err = models.QuestionnaireManager.DeleteQuestion(user.QuestionID)
+	err = models.QuestionnaireManager.DeleteQuestion(request.ID)
 	if err != nil {
 		resp.Msg = err.Error()
 		logs.Info("[QuestionController::Delete] DeleteDeleteQuestion failed")
@@ -150,7 +152,7 @@ Out:
 // @router /filter [post]
 func (q *QuestionController) Filter() {
 	resp := BaseResponse{Code: -1}
-	request := base.SingleID{}
+	request := QuestionFilter{}
 	ret := models.QuestionList{}
 
 	err := json.Unmarshal(q.Ctx.Input.RequestBody, &request)
@@ -160,15 +162,54 @@ func (q *QuestionController) Filter() {
 		goto Out
 	}
 
-	if request.ID == 0 {
+	if request.QuestionnaireID == 0 {
 		logs.Warn("[QuestionController::Filter] invalid id")
 		resp.Code = base.ErrInvalidParameter
 		goto Out
 	}
 
-	ret, err = models.QuestionnaireManager.GetQuestions(request.ID)
+	ret, err = models.QuestionnaireManager.GetQuestions(request.QuestionnaireID)
 	if err != nil {
 		logs.Debug("[QuestionController::Filter] GetQuestions failed", "err", err)
+		resp.Code = base.ErrInternal
+		resp.Msg = err.Error()
+		goto Out
+	}
+
+	resp.Code = 0
+	resp.Msg = msgSuccess
+	resp.Data = ret
+Out:
+	q.Data["json"] = resp
+	q.ServeJSON()
+}
+
+// @Title Get Info
+// @Description find object which meet filter
+// @Success 200 {object} models.ScoreInfo
+// @Failure 403 :objectId is empty
+// @router /info [post]
+func (q *QuestionController) Info() {
+	resp := BaseResponse{Code: -1}
+	request := base.SingleID{}
+	ret := &models.QuestionInfo{}
+
+	err := json.Unmarshal(q.Ctx.Input.RequestBody, &request)
+	if err != nil {
+		logs.Warn("[QuestionController::Info] invalid input data", "request", q.Ctx.Input.RequestBody)
+		resp.Code = base.ErrInvalidInput
+		goto Out
+	}
+
+	if request.ID == 0 {
+		logs.Warn("[QuestionController::Info] invalid id")
+		resp.Code = base.ErrInvalidParameter
+		goto Out
+	}
+
+	ret, err = models.QuestionnaireManager.GetQuestionInfo(request.ID)
+	if err != nil {
+		logs.Debug("[QuestionController::Info] GetQuestionInfo failed", "err", err)
 		resp.Code = base.ErrInternal
 		resp.Msg = err.Error()
 		goto Out

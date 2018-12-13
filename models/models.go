@@ -319,6 +319,17 @@ func (ol OptionList) Check() error {
 	return nil
 }
 
+func (ol OptionList) FilterEmpty() OptionList {
+	ret := OptionList{}
+	for _, v := range ol {
+		if v.Index == 0 || v.Option == "" {
+			continue
+		}
+		ret = append(ret, v)
+	}
+	return ret
+}
+
 type QCheckBox struct {
 	Choice OptionList
 }
@@ -333,18 +344,17 @@ type QStar struct {
 }
 
 type QuestionInfo struct {
-	QuestionnaireID int         `json:"questionnaire_id"`
-	QuestionID      int         `json:"question_id"`
-	Index           int         `json:"index"`
-	Type            int         `json:"type"`
-	Required        bool        `json:"required"`
-	Question        string      `json:"question"`
-	Data            interface{} `json:"data"`
-	Options         OptionList  `json:"options"`
-	Scope           []int       `json:"scope"` // which subject will this question apply to
+	QuestionnaireID int        `json:"questionnaire_id"`
+	QuestionID      int        `json:"id"`
+	Index           int        `json:"index"`
+	Type            int        `json:"type"`
+	Required        bool       `json:"required"`
+	Question        string     `json:"question"`
+	Options         OptionList `json:"options"`
+	Scope           []int      `json:"scope"` // which subject will this question apply to
 }
 
-func (q QuestionInfo) Equal(r QuestionInfo) bool {
+func (q QuestionInfo) Equal(r *QuestionInfo) bool {
 	if q.QuestionID != r.QuestionID ||
 		q.Index != r.Index ||
 		q.Type != r.Type ||
@@ -382,7 +392,7 @@ func (q QuestionInfo) Check() error {
 	}
 
 	if len(q.Options) == 0 {
-		return errors.New("empty questions")
+		return errors.New("empty options")
 	}
 	err := q.Options.Check()
 	if err != nil {
@@ -397,7 +407,7 @@ func (q QuestionInfo) Check() error {
 	return err
 }
 
-type QuestionList []QuestionInfo
+type QuestionList []*QuestionInfo
 
 func (q QuestionList) Len() int {
 	return len(q)

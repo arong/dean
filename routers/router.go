@@ -56,7 +56,7 @@ func init() {
 		),
 		beego.NSNamespace("/question",
 			beego.NSInclude(
-				&controllers.QuestionnaireController{},
+				&controllers.QuestionController{},
 			),
 		),
 		beego.NSNamespace("/questionnaire",

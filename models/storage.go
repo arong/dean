@@ -222,6 +222,55 @@ func (ma *mysqlAgent) LoadAllData() error {
 	}
 	QuestionnaireManager.Init(questionMap)
 
+	// init question
+	{
+		rows, err := ma.db.Query("SELECT iQuestionID, iQuestionnaireID, iIndex, eType, bRequired, vQuestion, vContent FROM tbQuestion;")
+		if err != nil {
+			logs.Error("[LoadAllData] failed to load tbQuestion", "err", err)
+			return err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			tmp := QuestionInfo{}
+			buff := ""
+			require := 0
+			err = rows.Scan(&tmp.QuestionID, &tmp.QuestionnaireID, &tmp.Index, &tmp.Type, &require, &tmp.Question, &buff)
+			if err != nil {
+				logs.Error("[LoadAllData] scan tbQuestion failed", err)
+				continue
+			}
+			if require == 1 {
+				tmp.Required = true
+			}
+
+			decoded, err := base64.StdEncoding.DecodeString(tmp.Question)
+			if err != nil {
+				logs.Warn("[LoadAllData] tbQuestion.Question data error", "err", err)
+				continue
+			}
+			tmp.Question = string(decoded)
+
+			decoded, err = base64.StdEncoding.DecodeString(buff)
+			if err != nil {
+				logs.Warn("[LoadAllData] tbQuestion.Options data error", "err", err)
+				continue
+			}
+			err = json.Unmarshal(decoded, &tmp.Options)
+			if err != nil {
+				logs.Warn("[LoadAllData] invalid Option data", "err", err)
+				continue
+			}
+
+			if q, ok := QuestionnaireManager.questionnaires[tmp.QuestionnaireID]; ok {
+				q.Questions = append(q.Questions, &tmp)
+			} else {
+				logs.Warn("[LoadAllData] questionnaire id not found")
+				continue
+			}
+			QuestionnaireManager.questions[tmp.QuestionID] = &tmp
+		}
+	}
 	logs.Info("load data success")
 	return nil
 }
@@ -643,19 +692,20 @@ func (ma *mysqlAgent) AddQuestion(questionnaireID int, info *QuestionInfo) (int,
 		return 0, err
 	}
 	encoded := base64.StdEncoding.EncodeToString(buff)
-	stmtIns, err := ma.db.Prepare("INSERT INTO tbQuestion (`iQuestionnaireID`,`vQuestion`,`iIndex`,`eType`,`bRequired`,`vContent`) VALUES (?,?,?,?,?)")
+
+	stmtIns, err := ma.db.Prepare("INSERT INTO tbQuestion (`iQuestionnaireID`,`vQuestion`,`iIndex`,`eType`,`bRequired`,`vContent`) VALUES (?,?,?,?,?,?)")
 	if err != nil {
 		return 0, err
 	}
 	defer stmtIns.Close()
 
-	resp, err := stmtIns.Exec(questionnaireID, info.Question, info.Index, info.Type, func() int {
+	resp, err := stmtIns.Exec(questionnaireID, base64.StdEncoding.EncodeToString([]byte(info.Question)), info.Index, info.Type, func() int {
 		if info.Required {
 			return 1
 		} else {
 			return 0
 		}
-	}, encoded)
+	}(), encoded)
 
 	if err != nil {
 		logs.Warn("[AddQuestion] execute sql failed", "err", err)
@@ -671,7 +721,7 @@ func (ma *mysqlAgent) AddQuestion(questionnaireID int, info *QuestionInfo) (int,
 	return int(id), nil
 }
 
-func (ma *mysqlAgent) UpdateQuestion(questionnaireID int, info *QuestionInfo) (int, error) {
+func (ma *mysqlAgent) UpdateQuestion(info *QuestionInfo) (int, error) {
 	buff, err := json.Marshal(info.Options)
 	if err != nil {
 		return 0, err
@@ -683,13 +733,13 @@ func (ma *mysqlAgent) UpdateQuestion(questionnaireID int, info *QuestionInfo) (i
 	}
 	defer stmtIns.Close()
 
-	resp, err := stmtIns.Exec(info.Question, info.Index, info.Type, func() int {
+	resp, err := stmtIns.Exec(base64.StdEncoding.EncodeToString([]byte(info.Question)), info.Index, info.Type, func() int {
 		if info.Required {
 			return 1
 		} else {
 			return 0
 		}
-	}, encoded, info.QuestionID)
+	}(), encoded, info.QuestionID)
 
 	if err != nil {
 		logs.Warn("[UpdateQuestion] execute sql failed", "err", err)
@@ -705,10 +755,10 @@ func (ma *mysqlAgent) UpdateQuestion(questionnaireID int, info *QuestionInfo) (i
 	return int(id), nil
 }
 
-func (ma *mysqlAgent) DeleteQuestion(questionID int) (int, error) {
+func (ma *mysqlAgent) DeleteQuestion(questionID int) error {
 	stmtIns, err := ma.db.Prepare("DELETE FROM tbQuestion WHERE iQuestionID = ?")
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer stmtIns.Close()
 
@@ -716,14 +766,17 @@ func (ma *mysqlAgent) DeleteQuestion(questionID int) (int, error) {
 
 	if err != nil {
 		logs.Warn("[DeleteQuestion] execute sql failed", "err", err)
-		return 0, err
+		return err
 	}
 
-	id, err := resp.LastInsertId()
+	rows, err := resp.RowsAffected()
 	if err != nil {
 		logs.Warn("[DeleteQuestion] unexpected update rows", "err", err)
-		return 0, err
+		return err
 	}
 
-	return int(id), nil
+	if rows != 1 {
+		logs.Warn("[DeleteQuestion] data error", "rows", rows)
+	}
+	return nil
 }

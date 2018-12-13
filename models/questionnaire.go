@@ -131,15 +131,19 @@ func (qm *questionnaireManager) Filter() (QuestionnaireList, error) {
 }
 
 // AddQuestion add question to questionnaire
-func (qm *questionnaireManager) AddQuestion(info *QuestionInfo) error {
+func (qm *questionnaireManager) AddQuestion(info *QuestionInfo) (int, error) {
 	q, ok := qm.questionnaires[info.QuestionnaireID]
 	if !ok {
-		return errNotExist
+		return 0, errNotExist
+	}
+
+	if q.Status != QStatusDraft {
+		return 0, errPermission
 	}
 
 	for _, v := range q.Questions {
 		if v.Question == info.Question {
-			return errExist
+			return 0, errExist
 		}
 	}
 
@@ -148,23 +152,102 @@ func (qm *questionnaireManager) AddQuestion(info *QuestionInfo) error {
 	info.QuestionID, err = Ma.AddQuestion(info.QuestionnaireID, info)
 	if err != nil {
 		logs.Warn("[AddQuestion] AddQuestion failed", "err", err)
+		return 0, err
+	}
+
+	qm.questions[info.QuestionID] = info
+	q.Questions = append(q.Questions, info)
+	return info.QuestionID, nil
+}
+
+// UpdateQuestion add question to questionnaire
+func (qm *questionnaireManager) UpdateQuestion(info *QuestionInfo) error {
+	curr, ok := qm.questions[info.QuestionID]
+	if !ok {
+		return errNotExist
+	}
+
+	q, ok := qm.questionnaires[curr.QuestionnaireID]
+	if !ok {
+		return errNotExist
+	}
+
+	if q.Status != QStatusDraft {
+		return errPermission
+	}
+
+	if curr.Equal(info) {
+		logs.Debug("[questionnaireManager::UpdateQuestion] nothing to do")
+		return nil
+	}
+
+	for _, v := range q.Questions {
+		if v.Question == info.Question && v.QuestionID != info.QuestionID {
+			return errExist
+		}
+	}
+
+	backup := *curr
+	curr.Index = info.Index
+	curr.Type = info.Type
+	curr.Required = info.Required
+	curr.Question = info.Question
+	curr.Options = info.Options.FilterEmpty()
+
+	// insert to database
+	var err error
+	info.QuestionID, err = Ma.UpdateQuestion(curr)
+	if err != nil {
+		logs.Warn("[AddQuestion] AddQuestion failed", "err", err)
+		curr = &backup
 		return err
 	}
 
 	return nil
 }
 
-// UpdateQuestion add question to questionnaire
-func (qm *questionnaireManager) UpdateQuestion(info *QuestionInfo) error {
-	return nil
-}
-
 func (qm *questionnaireManager) DeleteQuestion(id int) error {
+	curr, ok := qm.questions[id]
+	if !ok {
+		return errNotExist
+	}
+
+	q, ok := qm.questionnaires[curr.QuestionnaireID]
+	if !ok {
+		return errNotExist
+	}
+
+	if q.Status != QStatusDraft {
+		return errPermission
+	}
+
+	err := Ma.DeleteQuestion(id)
+	if err != nil {
+		logs.Info("[questionnaireManager::DeleteQuestion] DeleteQuestion failed", "err", err)
+		return err
+	}
+
+	delete(qm.questions, id)
+	if len(q.Questions) > 0 {
+		list := QuestionList{}
+		for _, v := range q.Questions {
+			if v.QuestionID == id {
+				continue
+			}
+			list = append(list, v)
+		}
+		q.Questions = list
+	}
+
 	return nil
 }
 
 func (qm *questionnaireManager) GetQuestionInfo(id int) (*QuestionInfo, error) {
-	return nil, nil
+	curr, ok := qm.questions[id]
+	if !ok {
+		return nil, errNotExist
+	}
+	return curr, nil
 }
 
 func (qm *questionnaireManager) GetQuestions(questionnaireID int) (QuestionList, error) {
@@ -188,6 +271,10 @@ func (qm *questionnaireManager) Submit(req QuestionnaireSubmit) error {
 	if !ok {
 		logs.Debug("[questionnaireManager::Submit] questionnaire not found")
 		return errNotExist
+	}
+
+	if curr.Status != QStatusPublished {
+		return errPermission
 	}
 
 	studentInfo, err := Um.GetUser(req.StudentID)
