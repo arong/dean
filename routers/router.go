@@ -54,14 +54,26 @@ func init() {
 				&controllers.SubjectController{},
 			),
 		),
-		beego.NSNamespace("/question",
-			beego.NSInclude(
-				&controllers.QuestionController{},
-			),
-		),
 		beego.NSNamespace("/questionnaire",
-			beego.NSInclude(
-				&controllers.QuestionnaireController{},
+			beego.NSNamespace("/question",
+				beego.NSInclude(
+					&controllers.QuestionController{},
+				),
+			),
+			beego.NSNamespace("/view",
+				beego.NSInclude(
+					&controllers.ScoreController{},
+				),
+			),
+			beego.NSNamespace("/edit",
+				beego.NSInclude(
+					&controllers.QuestionnaireController{},
+				),
+			),
+			beego.NSNamespace("/vote",
+				beego.NSInclude(
+					&controllers.VoteController{},
+				),
 			),
 		),
 		beego.NSNamespace("/auth",

@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/arong/dean/base"
@@ -21,21 +22,25 @@ import (
 var filterUser = func(ctx *context.Context) {
 	request := base.BaseRequest{}
 	var err error
+	msg := ""
 
 	if ctx.Input.IsPost() {
 		err := json.Unmarshal(ctx.Input.RequestBody, &request)
 		if err != nil {
 			logs.Debug("[filterUser] bad request found", ctx.Input.IP())
+			msg = "bad request"
 			goto Out
 		}
 
 		if !request.IsValid() {
+			msg = "invalid request"
 			goto Out
 		}
 	} else if ctx.Input.IsGet() {
 		v := ctx.Input.Query("token")
 		if v == "" {
 			logs.Info("[filterUser] token not found")
+			msg = "token not found"
 			goto Out
 		}
 		request.Token = v
@@ -43,21 +48,25 @@ var filterUser = func(ctx *context.Context) {
 		v = ctx.Input.Query("timestamp")
 		if v == "" {
 			logs.Info("[filterUser] timestamp not found")
+			msg = "timestamp not found"
 			goto Out
 		}
 		request.Timestamp, err = strconv.ParseInt(v, 10, 64)
 		if err != nil {
+			msg = "invalid timestamp"
 			goto Out
 		}
 
 		v = ctx.Input.Query("check")
 		if v == "" {
 			logs.Info("[filterUser] check sum not found")
+			msg = "checksum not found"
 			goto Out
 		}
 		request.Check = v
 
 		if !request.IsValid() {
+			msg = "invalid request"
 			goto Out
 		}
 	}
@@ -67,8 +76,16 @@ var filterUser = func(ctx *context.Context) {
 		loginInfo, ok := models.Ac.VerifyToken(request.Token)
 		if !ok {
 			if ctx.Request.URL.Path != "/api/v1/dean/auth/login" {
+				msg = "invalid token"
 				goto Out
 			}
+		}
+		// student only allowed to view certain page
+		if loginInfo.UserType == base.AccountTypeStudent &&
+			!strings.HasPrefix(ctx.Request.URL.Path, "/api/v1/dean/questionnaire/vote") {
+			msg = "permission denied"
+			logs.Info("[filterUser] abnormal behavior found", "account", loginInfo, "url", ctx.Request.URL.Path)
+			goto Out
 		}
 		ctx.Input.SetData(base.Private, loginInfo)
 	}
@@ -77,9 +94,10 @@ var filterUser = func(ctx *context.Context) {
 		return
 	}
 	ctx.Input.RequestBody, _ = json.Marshal(request.Data)
+	ctx.Input.SetData(base.Data, request.Data)
 	return
 Out:
-	ctx.Output.JSON(controllers.BaseResponse{Code: -2, Msg: "invalid token"}, false, true)
+	ctx.Output.JSON(controllers.BaseResponse{Code: -2, Msg: msg}, false, true)
 }
 
 func signalHandler(db *badger.DB) {

@@ -154,7 +154,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 	// load students
 	userMap := make(map[int64]*StudentInfo)
 	{
-		rows, err := ma.db.Query("SELECT iUserID,vUserName,vRegistNumber,eGender,iClassID FROM tbStudent WHERE eStatus = 1;")
+		rows, err := ma.db.Query("SELECT iUserID,vName,vRegistNumber,eGender,iClassID FROM tbStudent WHERE eStatus = 1;")
 		if err != nil {
 			logs.Error("[LoadAllData] failed to load tbStudent", "err", err)
 			return err

@@ -20,6 +20,7 @@ type questionnaireManager struct {
 	titleMap       map[string]*QuestionnaireInfo
 	questions      map[int]*QuestionInfo  // all question
 	score          map[int64]TeacherScore // teacher score
+	//page map[int]
 }
 
 func (q *questionnaireManager) Init(idMap map[int]*QuestionnaireInfo) {
@@ -92,6 +93,65 @@ func (q *questionnaireManager) Update(info *QuestionnaireInfo) error {
 		return err
 	}
 	return nil
+}
+
+type GenRequest struct {
+	StudentID       int64 `json:"-"`
+	QuestionnaireID int   `json:"questionnaire_id"`
+}
+
+func (qm *questionnaireManager) Generate(request GenRequest) (SurveyPages, error) {
+	q, ok := qm.questionnaires[request.QuestionnaireID]
+	if !ok {
+		return nil, errNotExist
+	}
+
+	if q.Status != QStatusPublished {
+		logs.Debug("[questionnaireManager::Generate] status not allowed")
+		return nil, errNotExist
+	}
+
+	if len(q.Questions) == 0 {
+		logs.Debug("[questionnaireManager::Generate] no question")
+		return nil, errNotExist
+	}
+
+	student, err := Um.GetUser(request.StudentID)
+	if err != nil {
+		logs.Error("[questionnaireManager::Generate] GetUser failed", "err", err)
+		return nil, err
+	}
+
+	class, err := Cm.GetInfo(student.ClassID)
+	if err != nil {
+		logs.Error("[questionnaireManager::Generate] GetInfo failed", "err", err)
+		return nil, err
+	}
+
+	logs.Debug("[questionnaireManager::Generate] q", class.TeacherList)
+	survey := SurveyPages{}
+	for _, v := range class.TeacherList {
+		page := SurveyPage{TeacherID: v.TeacherID, TeacherName: v.Teacher}
+		for _, val := range q.Questions {
+			if len(val.Scope) > 0 {
+				found := false
+				for _, i := range val.Scope {
+					if i == v.SubjectID {
+						found = true
+						break
+					}
+				}
+				if !found {
+					continue
+				}
+			}
+
+			page.Questions = append(page.Questions, val)
+		}
+		survey = append(survey, page)
+	}
+
+	return survey, nil
 }
 
 func (q *questionnaireManager) Delete(id int) error {

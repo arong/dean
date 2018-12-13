@@ -527,6 +527,24 @@ func (ql QuestionnaireList) Page(page base.CommPage) QuestionnaireList {
 	}
 }
 
+type SurveyPage struct {
+	TeacherID   int64        `json:"t_id"`
+	TeacherName string       `json:"t_name"`
+	Questions   QuestionList `json:"questions"`
+}
+
+type SurveyPages []SurveyPage
+
+func (s SurveyPages) Len() int {
+	return len(s)
+}
+func (s SurveyPages) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+func (s SurveyPages) Less(i, j int) bool {
+	return s[i].TeacherID < s[j].TeacherID
+}
+
 const (
 	QuestionTypeSingleSelection = 1
 	QuestionTypeMultiSelection  = 2

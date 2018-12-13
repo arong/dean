@@ -190,7 +190,7 @@ func (q *QuestionnaireController) Submit() {
 	{
 		p := q.Ctx.Input.GetData(base.Private)
 		if l, ok := p.(models.LoginInfo); ok {
-			if l.UserType != models.TypeStudent {
+			if l.UserType != base.AccountTypeStudent {
 				goto Out
 			}
 			request.StudentID = l.ID

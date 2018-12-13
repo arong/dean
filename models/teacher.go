@@ -25,7 +25,6 @@ var Tm TeacherManager
 func Init(conf *DBConfig) {
 	// allocate memory
 	Ma.Init(conf)
-	VM.Init()
 
 	// data warm up
 	err := Ma.LoadAllData()

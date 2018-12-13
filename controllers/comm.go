@@ -2,10 +2,36 @@ package controllers
 
 import "encoding/json"
 
+const (
+	defaultResp     = `{"code":-1,"msg":"internal error","data":null}`
+	msgInvalidJSON  = "invalid JSON"
+	msgInvalidParam = "invalid parameter"
+	msgSuccess      = "success"
+)
+
 type BaseResponse struct {
 	Code int         `json:"code"`
 	Msg  string      `json:"msg"`
 	Data interface{} `json:"data"`
+}
+
+func (b *BaseResponse) String() string {
+	if b.Msg == "" {
+		b.Msg = errMsgMap[b.Code]
+	}
+
+	buff, err := json.Marshal(b)
+	if err != nil {
+		return defaultResp
+	}
+	return string(buff)
+}
+
+func (b *BaseResponse) Fill() *BaseResponse {
+	if b.Msg == "" {
+		b.Msg = errMsgMap[b.Code]
+	}
+	return b
 }
 
 type CommPage struct {
@@ -17,28 +43,6 @@ type CommList struct {
 	Total int         `json:"total"`
 	List  interface{} `json:"list"`
 }
-
-const (
-	defaultResp = `{"code":-1,"msg":"internal error","data":null}`
-)
-
-func (cm *BaseResponse) String() string {
-	if cm.Msg == "" {
-		cm.Msg = errMsgMap[cm.Code]
-	}
-
-	buff, err := json.Marshal(cm)
-	if err != nil {
-		return defaultResp
-	}
-	return string(buff)
-}
-
-var (
-	msgInvalidJSON  = "invalid JSON"
-	msgInvalidParam = "invalid parameter"
-	msgSuccess      = "success"
-)
 
 var errMsgMap = map[int]string{
 	0: msgSuccess,

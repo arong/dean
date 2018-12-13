@@ -35,7 +35,6 @@ func (s *ScoreController) Get() {
 		goto Out
 	}
 	fmt.Println("teacherID=", id)
-	ret, err = models.VM.GetScore(id)
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out

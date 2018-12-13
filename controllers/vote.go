@@ -3,12 +3,11 @@ package controllers
 import (
 	"encoding/json"
 
+	"github.com/arong/dean/base"
 	"github.com/arong/dean/models"
-
-	"fmt"
+	"github.com/astaxie/beego/logs"
 
 	"github.com/astaxie/beego"
-	"github.com/astaxie/beego/logs"
 )
 
 // Operations about object
@@ -16,80 +15,59 @@ type VoteController struct {
 	beego.Controller
 }
 
-type voteRequest struct {
-	VoteCode string
-	Scores   []*models.VoteMeta
-}
-
-func (vr *voteRequest) Verify() error {
-	//filter, err := models.Decode(vr.VoteCode)
-	//if err != nil {
-	//	logs.Warn("[voteRequest::Verify] Decode failed")
-	//	return err
-	//}
-	//
-	//classResp, err := models.Cm.GetInfo(filter.GetID())
-	//if err != nil {
-	//	logs.Debug("[voteRequest::Verify] class not found")
-	//	return err
-	//}
-
-	// check validity
-	//currMap := make(map[models.UserID]bool)
-	//for _, v := range classResp.TeacherIDs {
-	//	currMap[v] = true
-	//}
-
-	// check extra
-	//for _, v := range vr.Scores {
-	//	if currMap[v.TeacherID] == false {
-	//		return errors.New("access denied")
-	//	}
-	//	delete(currMap, v.TeacherID)
-	//}
-	//
-	//check lack
-	//if len(currMap) > 0 {
-	//	return errors.New("all teacher must be voted")
-	//}
-	return nil
-}
-
-// @Title Vote
+// @Title GetQuestionnaire
 // @Description create object
 // @Param	body		body 	voteRequest	true		"The vote info"
 // @Success 200 {string} 0
 // @Failure 403 body is empty
-// @router / [post]
-func (v *VoteController) Post() {
-	request := voteRequest{}
+// @router /survey [post]
+func (v *VoteController) GetQuestionnaire() {
 	resp := BaseResponse{Code: -1}
+	req := models.GenRequest{}
+	ret := models.SurveyPages{}
+	var err error
 
-	logs.Debug("[VoteController::Post]", "request", string(v.Ctx.Input.RequestBody))
-	err := json.Unmarshal(v.Ctx.Input.RequestBody, &request)
-	if err != nil {
-		resp.Msg = msgInvalidJSON
-		logs.Trace("[VoteController::Post] invalid request format")
+	private := v.Ctx.Input.GetData(base.Private)
+	l, ok := private.(models.LoginInfo)
+	if !ok {
+		logs.Warn("[VoteController::GetQuestionnaire] bug found")
+		resp.Code = base.ErrInternal
 		goto Out
 	}
 
-	err = request.Verify()
-	if err != nil {
-		logs.Debug("[VoteController::Post] invalid request", "err", err)
-		resp.Msg = err.Error()
+	if l.UserType != base.AccountTypeStudent {
+		logs.Info("[VoteController::GetQuestionnaire] invalid account type")
+		resp.Code = base.ErrInvalidParameter
 		goto Out
 	}
 
-	err = models.VM.CastVote(request.Scores)
+	err = json.Unmarshal(v.Ctx.Input.RequestBody, &req)
 	if err != nil {
-		resp.Msg = err.Error()
+		logs.Info("[VoteController::GetQuestionnaire] invalid input data", "request", string(v.Ctx.Input.RequestBody))
+		resp.Code = base.ErrInvalidInput
 		goto Out
 	}
+
+	if req.QuestionnaireID == 0 {
+		logs.Debug("[VoteController::GetQuestionnaire] invalid questionnaire id")
+		resp.Code = base.ErrInvalidParameter
+		goto Out
+	}
+
+	req.StudentID = l.ID
+
+	ret, err = models.QuestionnaireManager.Generate(req)
+	if err != nil {
+		logs.Info("[VoteController::GetQuestionnaire] Generate failed", "err", err)
+		resp.Code = base.ErrInternal
+		goto Out
+	}
+
 	resp.Code = 0
 	resp.Msg = msgSuccess
-	resp.Data = nil
+	resp.Data = ret
 Out:
-	v.Data["json"] = resp
+	v.Data["json"] = resp.Fill()
 	v.ServeJSON()
 }
 
@@ -97,44 +75,15 @@ Out:
 // @Description find object by voteCode
 // @Param	voteCode		path	string	true		"the voteCode to verify access"
 // @Success 200 {object} models.ScoreInfo
-// @router /:voteCode [get]
-func (v *VoteController) Get() {
+// @router /submit [post]
+func (v *VoteController) Submit() {
 	resp := BaseResponse{Code: -1}
 	var data *models.ClassResp
-
-	//logs.Debug(v.Ctx)
-	voteCode := v.Ctx.Input.Param(":voteCode")
-	name := v.GetString("foo")
-	logs.Debug("name", name)
-	logs.Debug("params", v.Ctx.Input.Params())
-	if voteCode == "" {
-		resp.Msg = msgInvalidParam
-		logs.Debug("no vote code")
-		goto Out
-	}
-
-	logs.Debug("receive a vote", "voteCode", voteCode)
 
 	resp.Code = 0
 	resp.Msg = msgSuccess
 	resp.Data = data
-Out:
+	//Out:
 	v.Data["json"] = resp
-	v.ServeJSON()
-}
-
-// @Title GetAll
-// @Description get all objects
-// @Success 200 {object} models.ScoreInfo
-// @Failure 403 :objectId is empty
-// @router / [get]
-func (v *VoteController) GetAll() {
-	resp := &BaseResponse{}
-	resp.Msg = msgSuccess
-	fmt.Println("fuck ")
-	obs := models.VM.GetAll()
-	resp.Data = obs
-	v.Data["json"] = resp
-	fmt.Println(obs)
 	v.ServeJSON()
 }
