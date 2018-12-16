@@ -4,42 +4,61 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/juju/ratelimit"
+
+	"github.com/arong/dean/base"
+
 	"github.com/astaxie/beego/logs"
 	"github.com/dgraph-io/badger"
 	"github.com/google/uuid"
-	"github.com/nbutton23/zxcvbn-go"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var Ac accessControl
 
 var (
-	ErrTooShort      = errors.New("password too short")
-	ErrTooLong       = errors.New("password too long")
-	ErrTooWeak       = errors.New("password too weak")
-	ErrPasswordError = errors.New("password error")
+	//ErrTooShort      = errors.New("password too short")
+	ErrTooLong = errors.New("password too long")
+	//ErrTooWeak       = errors.New("password too weak")
+	//ErrPasswordError = errors.New("password error")
 )
+
+type LoginKey struct {
+	UserType  int    `json:"type"`
+	LoginName string `json:"login_name"`
+}
 
 // LoginInfo store the login info
 type LoginRequest struct {
-	LoginName string `json:"login_name"`
-	Password  string `json:"password"`
+	LoginKey
+	Password string `json:"password"`
+}
+
+func (l LoginRequest) Check() error {
+	if l.LoginName == "" ||
+		l.Password == "" ||
+		(l.UserType != base.AccountTypeStudent && l.UserType != base.AccountTypeTeacher) {
+		return errInvalidParam
+	}
+	return nil
 }
 
 type accessControl struct {
-	loginMap        map[string]*LoginInfo
-	tokenMap        map[string]*LoginInfo
-	store           *badger.DB
-	defaultPassword string // default password for student
+	loginMap             map[LoginKey]*LoginInfo
+	tokenMap             map[string]*LoginInfo
+	store                *badger.DB
+	allowDefaultPassword bool
+	defaultPassword      string // default password for student
+	blackList            map[string]bool
 }
 
-type resetPassReq struct {
+type ResetPassReq struct {
 	Password string
 }
 
 func init() {
 	Ac.tokenMap = make(map[string]*LoginInfo)
+	Ac.blackList = make(map[string]bool)
 }
 
 // SetStore init handler
@@ -51,21 +70,21 @@ func (ac *accessControl) SetStore(db *badger.DB) {
 func (ac *accessControl) LoadToken() {
 	err := ac.store.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
-		opts.PrefetchSize = 10
+
 		it := txn.NewIterator(opts)
 		defer it.Close()
+
 		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 			k := item.Key()
 			loginInfo := LoginInfo{}
 			err := item.Value(func(v []byte) error {
 				err := json.Unmarshal(v, &loginInfo)
-				//fmt.Printf("key=%s, value=%s\n", k, v)
 				return err
 			})
 			if err != nil {
-				logs.Warn("[] invalid login info")
-				return err
+				logs.Warn("[accessControl::LoadToken] invalid login info", "key", string(k))
+				continue
 			}
 			ac.tokenMap[string(k)] = &loginInfo
 		}
@@ -75,38 +94,36 @@ func (ac *accessControl) LoadToken() {
 	if err != nil {
 		logs.Error("[accessControl::LoadToken] load token error", "err", err)
 	}
-}
 
-// IsValidPassword check too see if password is valid
-func (ac *accessControl) IsValidPassword(p string) error {
-	if len(p) < 8 {
-		return ErrTooShort
-	}
+	_ = ac.store.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte("AllowDefaultPassword"))
+		if err != nil {
+			return err
+		}
 
-	if len(p) >= 256 {
-		return ErrTooLong
-	}
+		valCopy, err := item.ValueCopy(nil)
+		if err != nil {
+			return err
+		}
 
-	strength := zxcvbn.PasswordStrength(p, nil)
-	if strength.Score < 2 {
-		logs.Debug("[accessControl::IsValidPassword] password too weak, score", strength.Score)
-		return ErrTooWeak
-	}
+		ac.allowDefaultPassword = string(valCopy) == "true"
+		return nil
+	})
 
-	return nil
-}
+	_ = ac.store.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte("DefaultPassword"))
+		if err != nil {
+			return err
+		}
 
-// EncryptPassword encrypt password
-func (ac *accessControl) EncryptPassword(p string) (string, error) {
-	encrypted := ""
-	hash, err := bcrypt.GenerateFromPassword([]byte(p), bcrypt.DefaultCost)
-	if err != nil {
-		logs.Warn("[accessControl::EncryptPassword] encrypt failed", err)
-		return encrypted, err
-	}
-	encrypted = string(hash)
-	logs.Debug("[accessControl::EncryptPassword] hash", encrypted)
-	return encrypted, nil
+		valCopy, err := item.ValueCopy(nil)
+		if err != nil {
+			return err
+		}
+
+		ac.defaultPassword = string(valCopy)
+		return nil
+	})
 }
 
 type LoginInfo struct {
@@ -114,24 +131,60 @@ type LoginInfo struct {
 	ID           int64
 	LoginName    string
 	Password     string
-	ExpireTime   time.Time // expire time of the token
 	CurrentToken string
+	ExpireTime   time.Time         // expire time of the token
+	Bucket       *ratelimit.Bucket // maximum try time
 }
 
 // Login: authorise user and issue token
 func (ac *accessControl) Login(req *LoginRequest) (string, error) {
 	token := ""
 
-	l, ok := ac.loginMap[req.LoginName]
-	if !ok {
-		logs.Debug("[accessControl::Login] User not found", req.LoginName)
-		return token, errNotExist
+	// check black list
+	{
+		_, ok := ac.blackList[req.LoginName]
+		if ok {
+			logs.Warn("[accessControl::Login] maybe attack", "login name", req.LoginName)
+			return "", errPermission
+		}
 	}
 
-	if req.Password != l.Password {
+	l, ok := ac.loginMap[req.LoginKey]
+	if !ok {
+		if req.UserType != base.AccountTypeStudent {
+			logs.Debug("[accessControl::Login] User not found", req.LoginName)
+			return token, errNotExist
+		}
+		student, err := Um.GetStudentByRegisterNumber(req.LoginName)
+		if err != nil {
+			logs.Debug("[accessControl::Login] student not found", req.LoginName)
+			return "", err
+		}
+		l = &LoginInfo{
+			UserType:  base.AccountTypeStudent,
+			ID:        student.StudentID,
+			LoginName: student.RegisterID,
+			Password:  ac.defaultPassword,
+		}
+		err = Ma.InsertPassword(l)
+		if err != nil {
+			logs.Debug("[accessControl::Login] InsertPassword failed")
+			return "", nil
+		}
+		ac.loginMap[req.LoginKey] = l
+	} else if req.Password != l.Password {
 		logs.Info("[accessControl::Login] password not match")
+		if l.Bucket == nil {
+			l.Bucket = ratelimit.NewBucket(time.Hour, 10)
+		}
+		if l.Bucket.TakeAvailable(1) <= 0 {
+			ac.blackList[l.LoginName] = true
+		}
 		return token, errPermission
 	}
+
+	// remove bucket after success login
+	l.Bucket = nil
 
 	if l.CurrentToken != "" {
 		logs.Debug("[accessControl::Login] remove token", l.CurrentToken)
@@ -149,31 +202,70 @@ func (ac *accessControl) Login(req *LoginRequest) (string, error) {
 	return token, nil
 }
 
-// UpdatePassword will update current user and request a new login
-func (ac *accessControl) UpdatePassword(req *LoginInfo) error {
-	l, ok := ac.loginMap[req.LoginName]
+type UpdateRequest struct {
+	LoginKey
+	Password string
+}
+
+func (ac *accessControl) Update(req *UpdateRequest) error {
+	l, ok := ac.loginMap[req.LoginKey]
 	if !ok {
-		logs.Debug("[accessControl::UpdatePassword] user not found", req.LoginName)
+		logs.Debug("[accessControl::Update] user not exist")
 		return errNotExist
+	}
+
+	if l.Password == req.Password {
+		logs.Info("[accessControl::Update] nothing to do")
+		return nil
+	}
+
+	err := Ma.UpdatePassword(l.ID, req.Password)
+	if err != nil {
+		logs.Warn("[accessControl::Update] UpdatePassword failed", "err", err)
+		return err
 	}
 
 	l.Password = req.Password
 
-	if l.CurrentToken != "" {
-		delete(ac.tokenMap, l.CurrentToken)
-		ac.removeToken(l.CurrentToken)
-		l.CurrentToken = ""
-	}
+	logs.Info("[accessControl::Update] update password success", "loginName", req.LoginName, "password", req.Password)
 	return nil
 }
 
 // ResetAllStudentPassword reset all students' password to default value
-func (ac *accessControl) ResetAllStudentPassword(req *resetPassReq) error {
-	if req.Password == ac.defaultPassword {
-		return errNotExist
+func (ac *accessControl) ResetAllStudentPassword(req *ResetPassReq) error {
+	ac.defaultPassword = req.Password
+	// drop all students's password in db
+	err := Ma.ResetAllPassword(ac.defaultPassword)
+	if err != nil {
+		logs.Warn("[ResetAllStudentPassword] DropAllPassword failed", "err", err)
+		return err
 	}
 
-	ac.defaultPassword = req.Password
+	// flush password
+	for _, v := range ac.loginMap {
+		if v.UserType == base.AccountTypeStudent {
+			v.Password = req.Password
+		}
+	}
+
+	// set flag
+	err = ac.store.Update(func(txn *badger.Txn) error {
+		return txn.Set([]byte("AllowDefaultPassword"), []byte("true"))
+	})
+
+	if err != nil {
+		logs.Warn("[ResetAllStudentPassword] set cache failed", "err", err)
+	}
+
+	// set password
+	err = ac.store.Update(func(txn *badger.Txn) error {
+		return txn.Set([]byte("DefaultPassword"), []byte(ac.defaultPassword))
+	})
+
+	if err != nil {
+		logs.Warn("[ResetAllStudentPassword] set cache failed", "err", err)
+	}
+
 	return nil
 }
 

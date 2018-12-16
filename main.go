@@ -73,26 +73,25 @@ var filterUser = func(ctx *context.Context) {
 
 	// store login info to request context
 	{
-		loginInfo, ok := models.Ac.VerifyToken(request.Token)
-		if !ok {
-			if ctx.Request.URL.Path != "/api/v1/dean/auth/login" {
+		path := ctx.Request.URL.Path
+		if path != "/api/v1/auth/login" {
+			loginInfo, ok := models.Ac.VerifyToken(request.Token)
+			if !ok {
 				msg = "invalid token"
 				goto Out
 			}
+			// student only allowed to view certain page
+			if loginInfo.UserType == base.AccountTypeStudent &&
+				!strings.HasPrefix(path, "/api/v1/auth") &&
+				!strings.HasPrefix(path, "/api/v1/student") {
+				msg = "permission denied"
+				logs.Info("[filterUser] abnormal behavior found", "account", loginInfo, "url", ctx.Request.URL.Path)
+				goto Out
+			}
+			ctx.Input.SetData(base.Private, loginInfo)
 		}
-		// student only allowed to view certain page
-		if loginInfo.UserType == base.AccountTypeStudent &&
-			!strings.HasPrefix(ctx.Request.URL.Path, "/api/v1/dean/questionnaire/vote") {
-			msg = "permission denied"
-			logs.Info("[filterUser] abnormal behavior found", "account", loginInfo, "url", ctx.Request.URL.Path)
-			goto Out
-		}
-		ctx.Input.SetData(base.Private, loginInfo)
 	}
 
-	if ctx.Request.URL.Path == "/api/v1/dean/auth/logout" {
-		return
-	}
 	ctx.Input.RequestBody, _ = json.Marshal(request.Data)
 	ctx.Input.SetData(base.Data, request.Data)
 	return

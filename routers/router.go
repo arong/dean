@@ -12,31 +12,55 @@ import (
 	"github.com/astaxie/beego"
 )
 
-const (
-	// fixedPath is the top directory for all the resource
-	fixedPath = "/api/v1/dean"
-)
-
 func init() {
-	ns := beego.NewNamespace(fixedPath,
-		beego.NSNamespace("/class",
+	ns := beego.NewNamespace("/api/v1",
+		beego.NSNamespace("/auth",
 			beego.NSInclude(
-				&controllers.ClassController{},
+				&controllers.AuthController{},
 			),
 		),
-		beego.NSNamespace("/vote",
-			beego.NSInclude(
-				&controllers.VoteController{},
+		beego.NSNamespace("/dean",
+			beego.NSNamespace("/class",
+				beego.NSInclude(
+					&controllers.ClassController{},
+				),
 			),
-		),
-		beego.NSNamespace("/teacher",
-			beego.NSInclude(
-				&controllers.TeacherController{},
+			beego.NSNamespace("/questionnaire",
+				beego.NSNamespace("/question",
+					beego.NSInclude(
+						&controllers.QuestionController{},
+					),
+				),
+				beego.NSNamespace("/view",
+					beego.NSInclude(
+						&controllers.ScoreController{},
+					),
+				),
+				beego.NSNamespace("/edit",
+					beego.NSInclude(
+						&controllers.QuestionnaireController{},
+					),
+				),
+				beego.NSNamespace("/vote",
+					beego.NSInclude(
+						&controllers.VoteController{},
+					),
+				),
 			),
-		),
-		beego.NSNamespace("/score",
-			beego.NSInclude(
-				&controllers.ScoreController{},
+			beego.NSNamespace("/student",
+				beego.NSInclude(
+					&controllers.StudentController{},
+				),
+			),
+			beego.NSNamespace("/subject",
+				beego.NSInclude(
+					&controllers.SubjectController{},
+				),
+			),
+			beego.NSNamespace("/teacher",
+				beego.NSInclude(
+					&controllers.TeacherController{},
+				),
 			),
 		),
 		beego.NSNamespace("/student",
@@ -45,40 +69,10 @@ func init() {
 					&controllers.StudentScoreController{},
 				),
 			),
-			beego.NSInclude(
-				&controllers.StudentController{},
-			),
-		),
-		beego.NSNamespace("/subject",
-			beego.NSInclude(
-				&controllers.SubjectController{},
-			),
-		),
-		beego.NSNamespace("/questionnaire",
-			beego.NSNamespace("/question",
-				beego.NSInclude(
-					&controllers.QuestionController{},
-				),
-			),
-			beego.NSNamespace("/view",
-				beego.NSInclude(
-					&controllers.ScoreController{},
-				),
-			),
-			beego.NSNamespace("/edit",
-				beego.NSInclude(
-					&controllers.QuestionnaireController{},
-				),
-			),
 			beego.NSNamespace("/vote",
 				beego.NSInclude(
 					&controllers.VoteController{},
 				),
-			),
-		),
-		beego.NSNamespace("/auth",
-			beego.NSInclude(
-				&controllers.AuthController{},
 			),
 		),
 	)

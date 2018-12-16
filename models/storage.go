@@ -174,7 +174,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 	Um.Init(userMap)
 
 	// init access control
-	loginMap := make(map[string]*LoginInfo)
+	loginMap := make(map[LoginKey]*LoginInfo)
 	{
 		rows, err := ma.db.Query("SELECT iUserID,eType,vLoginName,vPassword FROM tbPassword;")
 		if err != nil {
@@ -190,7 +190,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 				logs.Error("scan failed", err)
 				continue
 			}
-			loginMap[tmp.LoginName] = &tmp
+			loginMap[LoginKey{UserType: tmp.UserType, LoginName: tmp.LoginName}] = &tmp
 		}
 	}
 	Ac.loginMap = loginMap
@@ -495,6 +495,23 @@ func (ma *mysqlAgent) DeleteStudent(uid int64) error {
 }
 
 // UpdatePassword password
+func (ma *mysqlAgent) InsertPassword(l *LoginInfo) error {
+	stmtIns, err := ma.db.Prepare("INSERT INTO `tbPassword`(`iUserID`, `eType`, `vLoginName`, `vPassword`) VALUES (?,?,?,?);")
+	if err != nil {
+		logs.Warn("[InsertPassword] Prepare sql failed", "err", err)
+		return err
+	}
+	defer stmtIns.Close()
+
+	_, err = stmtIns.Exec(l.ID, l.UserType, l.LoginName, l.Password)
+	if err != nil {
+		logs.Warn("[InsertPassword] execute sql failed", "err", err)
+		return err
+	}
+	return nil
+}
+
+// UpdatePassword password
 func (ma *mysqlAgent) UpdatePassword(id int64, password string) error {
 	stmtIns, err := ma.db.Prepare("UPDATE tbPassword SET vPassword=? WHERE iUserID=?;")
 	if err != nil {
@@ -507,6 +524,27 @@ func (ma *mysqlAgent) UpdatePassword(id int64, password string) error {
 		logs.Warn("execute sql failed", "err", err)
 		return err
 	}
+	return nil
+}
+
+func (ma *mysqlAgent) ResetAllPassword(password string) error {
+	stmtIns, err := ma.db.Prepare("UPDATE tbPassword SET vPassword=? WHERE eType=?;")
+	if err != nil {
+		return err
+	}
+	defer stmtIns.Close()
+
+	resp, err := stmtIns.Exec(password, base.AccountTypeStudent)
+	if err != nil {
+		logs.Warn("[DropAllPassword] execute sql failed", "err", err)
+		return err
+	}
+
+	count, err := resp.RowsAffected()
+	if err != nil {
+		logs.Warn("[DropAllPassword] database failed", "err", err)
+	}
+	logs.Info("[DropAllPassword] rows affected", "count", count)
 	return nil
 }
 

@@ -13,14 +13,19 @@ import (
 var Um userManager
 
 type userManager struct {
-	idMap map[int64]*StudentInfo
-	mutex sync.Mutex
+	idMap   map[int64]*StudentInfo
+	uuidMap map[string]*StudentInfo
+	mutex   sync.Mutex
 }
 
 // Init: Init
 func (um *userManager) Init(userMap map[int64]*StudentInfo) {
+	um.uuidMap = make(map[string]*StudentInfo)
 	if userMap != nil {
 		um.idMap = userMap
+		for _, v := range userMap {
+			um.uuidMap[v.RegisterID] = v
+		}
 	} else {
 		um.idMap = make(map[int64]*StudentInfo)
 	}
@@ -94,6 +99,14 @@ func (um *userManager) GetUser(uid int64) (*StudentInfo, error) {
 // GetUserByName: GetUserByName
 func (um *userManager) GetUserByName(name string) (*StudentInfo, error) {
 	return nil, errNotExist
+}
+
+func (um *userManager) GetStudentByRegisterNumber(reg string) (*StudentInfo, error) {
+	s, ok := um.uuidMap[reg]
+	if !ok {
+		return nil, errNotExist
+	}
+	return s, nil
 }
 
 // GetAllUsers: GetAllUsers
