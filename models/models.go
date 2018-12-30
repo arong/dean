@@ -4,8 +4,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/bearbin/go-age"
-
 	"github.com/astaxie/beego"
 
 	"github.com/arong/dean/base"
@@ -745,30 +743,36 @@ func (tl SubjectList) Less(i, j int) bool {
 }
 
 type Teacher struct {
+	Name      string `json:"name"`
 	TeacherID int64  `json:"teacher_id"`
-	SubjectID int    `json:"-"`
+	SubjectID int    `json:"subject_id"`
 	Subject   string `json:"subject"`
-	profile
+	Mobile    string `json:"mobile"`
+	Gender    int    `json:"gender"`
+	Birthday  string `json:"birthday"`
+	Age       int    `json:"age"`
+	RealName  string `json:"real_name"`
+	Address   string `json:"address"`
 }
 
 func (t *Teacher) IsValid() error {
-	if t.Mobile == "" {
-		return errors.New("invalid mobile")
-	}
+	//if t.Mobile == "" {
+	//	return errors.New("invalid mobile")
+	//}
 
-	if t.Gender < eGenderMale && t.Gender > eGenderUnknown {
-		return errors.New("invalid gender")
-	}
+	//if t.Gender < eGenderMale && t.Gender > eGenderUnknown {
+	//	return errors.New("invalid gender")
+	//}
 
-	if t.Birthday == "" {
-		return errors.New("empty birthday")
-	}
+	//if t.Birthday == "" {
+	//	return errors.New("empty birthday")
+	//}
 
-	birth, err := time.Parse("2006-01-02", t.Birthday)
-	if err != nil {
-		return errors.New("invalid birthday")
-	}
-	t.Age = age.Age(birth)
+	//birth, err := time.Parse("2006-01-02", t.Birthday)
+	//if err != nil {
+	//	return errors.New("invalid birthday")
+	//}
+	//t.Age = age.Age(birth)
 	return nil
 }
 
@@ -784,6 +788,20 @@ func (tl TeacherList) Swap(i, j int) {
 
 func (tl TeacherList) Less(i, j int) bool {
 	return tl[i].TeacherID < tl[j].TeacherID
+}
+
+func (tl TeacherList) Page(idx, size int) TeacherList {
+	start := (idx - 1) * size
+	end := idx * size
+	total := len(tl)
+
+	if start >= total {
+		return TeacherList{}
+	} else if end > total {
+		return tl[start:]
+	} else {
+		return tl[start:end]
+	}
 }
 
 type TeacherFilter struct {

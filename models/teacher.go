@@ -180,7 +180,6 @@ func (tm *TeacherManager) GetTeacherList(ids []int64) (TeacherList, error) {
 		}
 	}
 	tm.mutex.Unlock()
-	//sort.Sort(ret)
 	return ret, nil
 }
 
@@ -207,17 +206,13 @@ func (tm *TeacherManager) Filter(f *TeacherFilter) base.CommList {
 		ret = append(ret, tmp)
 	}
 
-	sort.Sort(ret)
-	sub := TeacherList{}
-	for k, v := range ret {
-		if k < start || k >= end {
-			continue
-		}
-		tmp := v
-		sub = append(sub, tmp)
-	}
 	tm.mutex.Unlock()
-	return base.CommList{Total: total, List: sub}
+	sort.Sort(ret)
+	ret = ret.Page(f.Page, f.Size)
+	for k, v := range ret {
+		ret[k].Subject = Sm.getSubjectName(v.SubjectID)
+	}
+	return base.CommList{Total: total, List: ret}
 }
 
 // GetAll: GetAll
