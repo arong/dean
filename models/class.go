@@ -199,5 +199,3 @@ func (cm *classManager) GetInfo(id int) (*Class, error) {
 	*ret = *val
 	return ret, nil
 }
-
-//func (cm *classManager)

@@ -8,7 +8,7 @@ func TestQuestionnaireInfo_IsSame(t *testing.T) {
 	l := QuestionnaireInfo{
 		QuestionnaireID: 1,
 		Title:           "l",
-		Questions:       QuestionList{QuestionInfo{Question: "how are you"}},
+		Questions:       QuestionList{&QuestionInfo{Question: "how are you"}},
 	}
 
 	r := QuestionnaireInfo{

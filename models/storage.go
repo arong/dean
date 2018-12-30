@@ -21,6 +21,7 @@ var Ma mysqlAgent
 const (
 	eStatusDeleted = 2
 	eStatusNormal  = 1
+	defultBirthday = "0000-00-00"
 )
 
 type mysqlAgent struct {
@@ -75,18 +76,20 @@ func (ma *mysqlAgent) LoadAllData() error {
 
 		for rows.Next() {
 			tmp := &Teacher{}
-			err = rows.Scan(&tmp.TeacherID, &tmp.Gender, &tmp.RealName, &tmp.Mobile, &tmp.SubjectID, &tmp.Birthday, &tmp.Address)
+			err = rows.Scan(&tmp.TeacherID, &tmp.Gender, &tmp.Name, &tmp.Mobile, &tmp.SubjectID, &tmp.Birthday, &tmp.Address)
 			if err != nil {
 				logs.Warn("[LoadAllData] data error at tbTeacher")
 				continue
 			}
-			if tmp.Birthday != "" {
+			if tmp.Birthday != defultBirthday {
 				birth, err := time.Parse(base.DateFormat, tmp.Birthday)
 				if err != nil {
 					logs.Warn("[LoadAllData] data error at tbTeacher", "birthday", tmp.Birthday, "err", err)
 					continue
 				}
 				tmp.Age = age.Age(birth)
+			} else {
+				tmp.Birthday = ""
 			}
 			teacherMap[tmp.TeacherID] = tmp
 		}
@@ -276,32 +279,36 @@ func (ma *mysqlAgent) LoadAllData() error {
 }
 
 // InsertTeacher insert teacher info
-func (ma *mysqlAgent) InsertTeacher(t *Teacher) error {
+func (ma *mysqlAgent) InsertTeacher(t Teacher) (int64, error) {
+	if t.Birthday == "" {
+		t.Birthday = defultBirthday
+	}
 	// Prepare statement for inserting data
 	stmtIns, err := ma.db.Prepare("INSERT INTO `tbTeacher` (`eGender`, `vName`, `vMobile`, `dtBirthday`, `vAddress`, `iSubjectID`) VALUES (?,?,?,?,?,?);")
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer stmtIns.Close()
 
-	resp, err := stmtIns.Exec(t.Gender, t.RealName, t.Mobile, t.Birthday, t.Address, t.SubjectID)
+	resp, err := stmtIns.Exec(t.Gender, t.Name, t.Mobile, t.Birthday, t.Address, t.SubjectID)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	id, err := resp.LastInsertId()
-	t.TeacherID = id
-	return nil
+	return resp.LastInsertId()
 }
 
 // UpdateTeacher update teacher info
-func (ma *mysqlAgent) UpdateTeacher(t *Teacher) error {
+func (ma *mysqlAgent) UpdateTeacher(t Teacher) error {
 	stmtIns, err := ma.db.Prepare("UPDATE tbTeacher SET eGender=?,vName=?,vMobile=?,dtBirthday=?,iSubjectID=?, vAddress=? WHERE iTeacherID=?;")
 	if err != nil {
 		return err
 	}
 	defer stmtIns.Close()
 
-	_, err = stmtIns.Exec(t.Gender, t.RealName, t.Mobile, t.Birthday, t.SubjectID, t.Address, t.TeacherID)
+	if t.Birthday == "" {
+		t.Birthday = defultBirthday
+	}
+	_, err = stmtIns.Exec(t.Gender, t.Name, t.Mobile, t.Birthday, t.SubjectID, t.Address, t.TeacherID)
 	if err != nil {
 		return err
 	}

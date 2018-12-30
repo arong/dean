@@ -58,7 +58,7 @@ func (tm *TeacherManager) Init(data map[int64]*Teacher) {
 	} else {
 		tm.idMap = data
 		for _, v := range data {
-			tm.nameMap[v.RealName] = v
+			tm.nameMap[v.Name] = v
 		}
 	}
 }
@@ -69,7 +69,7 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 		return errInvalidParam
 	}
 
-	if _, ok := tm.nameMap[t.RealName]; ok {
+	if _, ok := tm.nameMap[t.Name]; ok {
 		return errNameExist
 	}
 
@@ -79,7 +79,7 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 		return err
 	}
 
-	err = Ma.InsertTeacher(t)
+	t.TeacherID, err = Ma.InsertTeacher(*t)
 	if err != nil {
 		logs.Warn("[TeacherManager::AddTeacher] database error")
 		return err
@@ -88,7 +88,7 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 	// add to map
 	{
 		tm.mutex.Lock()
-		tm.nameMap[t.RealName] = t
+		tm.nameMap[t.Name] = t
 		tm.idMap[t.TeacherID] = t
 		tm.mutex.Unlock()
 	}
@@ -110,7 +110,7 @@ func (tm *TeacherManager) ModTeacher(t *Teacher) error {
 		return err
 	}
 
-	err = Ma.UpdateTeacher(t)
+	err = Ma.UpdateTeacher(*t)
 	if err != nil {
 		logs.Info("[TeacherManager::ModTeacher] UpdateTeacher failed", "err", err)
 		return err
@@ -118,7 +118,7 @@ func (tm *TeacherManager) ModTeacher(t *Teacher) error {
 
 	{
 		tm.mutex.Lock()
-		tm.nameMap[t.RealName] = t
+		tm.nameMap[t.Name] = t
 		tm.idMap[t.TeacherID] = t
 		tm.mutex.Unlock()
 	}
@@ -148,19 +148,20 @@ func (tm *TeacherManager) DelTeacher(idList []int64) ([]int64, error) {
 		}
 
 		// remove from map
-		delete(tm.nameMap, val.RealName)
+		delete(tm.nameMap, val.Name)
 		delete(tm.idMap, val.TeacherID)
 	}
 	return failed, nil
 }
 
 // GetTeacherInfo: GetTeacherInfo
-func (tm *TeacherManager) GetTeacherInfo(id int64) (*Teacher, error) {
-	ret := &Teacher{}
+func (tm *TeacherManager) GetTeacherInfo(id int64) (*TeacherInfoResp, error) {
+	ret := &TeacherInfoResp{}
 	err := errNotExist
 	tm.mutex.Lock()
 	if val, ok := tm.idMap[id]; ok {
-		*ret = *val
+		ret.SubjectID = val.SubjectID
+		ret.TeacherListItem = val.GetListItem()
 		err = nil
 	}
 	tm.mutex.Unlock()
@@ -169,26 +170,13 @@ func (tm *TeacherManager) GetTeacherInfo(id int64) (*Teacher, error) {
 	return ret, err
 }
 
-// GetTeacherList: GetTeacherList
-func (tm *TeacherManager) GetTeacherList(ids []int64) (TeacherList, error) {
-	ret := TeacherList{}
-	tm.mutex.Lock()
-	for _, v := range ids {
-		if val, ok := tm.idMap[v]; ok {
-			tmp := *val
-			ret = append(ret, &tmp)
-		}
-	}
-	tm.mutex.Unlock()
-	return ret, nil
-}
-
 // Filter: Filter
 func (tm *TeacherManager) Filter(f *TeacherFilter) base.CommList {
 	ret := TeacherList{}
 	total := 0
 	start := (f.Page - 1) * f.Size
 	end := f.Page * f.Size
+	idx := 0
 
 	logs.Debug("[TeacherManager::GetAll]", "start", start, "end", end)
 	tm.mutex.Lock()
@@ -197,21 +185,23 @@ func (tm *TeacherManager) Filter(f *TeacherFilter) base.CommList {
 			continue
 		}
 
-		if f.Name != "" && f.Name != v.RealName {
+		if f.Name != "" && f.Name != v.Name {
 			continue
 		}
 
 		total++
-		tmp := v
+		if idx < start || idx >= end {
+			idx++
+			continue
+		}
+		idx++
+		tmp := v.GetListItem()
+		tmp.Subject = Sm.getSubjectName(v.SubjectID)
 		ret = append(ret, tmp)
 	}
 
 	tm.mutex.Unlock()
 	sort.Sort(ret)
-	ret = ret.Page(f.Page, f.Size)
-	for k, v := range ret {
-		ret[k].Subject = Sm.getSubjectName(v.SubjectID)
-	}
 	return base.CommList{Total: total, List: ret}
 }
 
@@ -220,7 +210,7 @@ func (tm *TeacherManager) GetAll() base.CommList {
 	ret := simpleTeacherList{}
 	tm.mutex.Lock()
 	for _, v := range tm.idMap {
-		ret = append(ret, simpleTeacher{Name: v.RealName, ID: v.TeacherID})
+		ret = append(ret, simpleTeacher{Name: v.Name, ID: v.TeacherID})
 	}
 	tm.mutex.Unlock()
 	sort.Sort(ret)
@@ -254,7 +244,7 @@ func (tm *TeacherManager) CheckInstructorList(list InstructorList) error {
 		if t, ok := tm.idMap[v.TeacherID]; ok {
 			if t.SubjectID != 0 && t.SubjectID != v.SubjectID {
 				logs.Debug("[CheckInstructorList]", "t.SubjectID", t.SubjectID, "v.SubjectID", v.SubjectID)
-				return fmt.Errorf("teacher %s and subject %d not match", t.RealName, v.SubjectID)
+				return fmt.Errorf("teacher %s and subject %d not match", t.Name, v.SubjectID)
 			}
 		} else {
 			return errors.New(fmt.Sprintf("teacher %d not found", v.TeacherID))
