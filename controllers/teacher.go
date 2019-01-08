@@ -89,7 +89,7 @@ func (o *TeacherController) Get() {
 	resp := BaseResponse{Code: -1}
 	var err error
 	var id int64
-	ret := &models.Teacher{}
+	ret := &models.TeacherInfoResp{}
 
 	teacherID := o.Ctx.Input.Param(":teacherID")
 	if teacherID == "" {

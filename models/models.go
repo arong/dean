@@ -1,6 +1,7 @@
 package models
 
 import (
+	"github.com/bearbin/go-age"
 	"sort"
 	"time"
 
@@ -748,7 +749,6 @@ type Teacher struct {
 	Gender    int    `json:"gender"`
 	Age       int    `json:"age"`
 	Name      string `json:"name"`
-	Subject   string `json:"subject"`
 	Mobile    string `json:"mobile"`
 	Birthday  string `json:"birthday"`
 	Address   string `json:"address"`
@@ -763,19 +763,29 @@ func (t *Teacher) IsValid() error {
 	//	return errors.New("invalid gender")
 	//}
 
-	//if t.Birthday == "" {
-	//	return errors.New("empty birthday")
-	//}
-
-	//birth, err := time.Parse("2006-01-02", t.Birthday)
-	//if err != nil {
-	//	return errors.New("invalid birthday")
-	//}
-	//t.Age = age.Age(birth)
+	if t.Birthday != "" {
+		birth, err := time.Parse("2006-01-02", t.Birthday)
+		if err != nil {
+			return errors.New("invalid birthday")
+		}
+		t.Age = age.Age(birth)
+	}
 	return nil
 }
 
-type TeacherList []*Teacher
+func (t *Teacher) GetListItem() TeacherListItem {
+	return TeacherListItem{
+		TeacherID: t.TeacherID,
+		Name:      t.Name,
+		Gender:    t.Gender,
+		Age:       t.Age,
+		Mobile:    t.Mobile,
+		Birthday:  t.Birthday,
+		Address:   t.Address,
+	}
+}
+
+type TeacherList []TeacherListItem
 
 func (tl TeacherList) Len() int {
 	return len(tl)
@@ -789,19 +799,19 @@ func (tl TeacherList) Less(i, j int) bool {
 	return tl[i].TeacherID < tl[j].TeacherID
 }
 
-func (tl TeacherList) Page(idx, size int) TeacherList {
-	start := (idx - 1) * size
-	end := idx * size
-	total := len(tl)
-
-	if start >= total {
-		return TeacherList{}
-	} else if end > total {
-		return tl[start:]
-	} else {
-		return tl[start:end]
-	}
-}
+//func (tl TeacherList) Page(idx, size int) TeacherList {
+//	start := (idx - 1) * size
+//	end := idx * size
+//	total := len(tl)
+//
+//	if start >= total {
+//		return TeacherList{}
+//	} else if end > total {
+//		return tl[start:]
+//	} else {
+//		return tl[start:end]
+//	}
+//}
 
 type TeacherFilter struct {
 	base.CommPage
@@ -809,6 +819,22 @@ type TeacherFilter struct {
 	Age    int    `json:"age"`
 	Name   string `json:"name"`
 	Mobile string `json:"mobile"`
+}
+
+type TeacherListItem struct {
+	TeacherID int64  `json:"teacher_id"`
+	Gender    int    `json:"gender"`
+	Age       int    `json:"age"`
+	Name      string `json:"name,omitempty"`
+	Subject   string `json:"subject,omitempty"`
+	Mobile    string `json:"mobile,omitempty"`
+	Birthday  string `json:"birthday,omitempty"`
+	Address   string `json:"address,omitempty"`
+}
+
+type TeacherInfoResp struct {
+	TeacherListItem
+	SubjectID int `json:"subject_id"`
 }
 type simpleTeacher struct {
 	ID   int64  `json:"id"`

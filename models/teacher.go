@@ -79,7 +79,7 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 		return err
 	}
 
-	err = Ma.InsertTeacher(t)
+	t.TeacherID, err = Ma.InsertTeacher(*t)
 	if err != nil {
 		logs.Warn("[TeacherManager::AddTeacher] database error")
 		return err
@@ -110,7 +110,7 @@ func (tm *TeacherManager) ModTeacher(t *Teacher) error {
 		return err
 	}
 
-	err = Ma.UpdateTeacher(t)
+	err = Ma.UpdateTeacher(*t)
 	if err != nil {
 		logs.Info("[TeacherManager::ModTeacher] UpdateTeacher failed", "err", err)
 		return err
@@ -155,12 +155,13 @@ func (tm *TeacherManager) DelTeacher(idList []int64) ([]int64, error) {
 }
 
 // GetTeacherInfo: GetTeacherInfo
-func (tm *TeacherManager) GetTeacherInfo(id int64) (*Teacher, error) {
-	ret := &Teacher{}
+func (tm *TeacherManager) GetTeacherInfo(id int64) (*TeacherInfoResp, error) {
+	ret := &TeacherInfoResp{}
 	err := errNotExist
 	tm.mutex.Lock()
 	if val, ok := tm.idMap[id]; ok {
-		*ret = *val
+		ret.SubjectID = val.SubjectID
+		ret.TeacherListItem = val.GetListItem()
 		err = nil
 	}
 	tm.mutex.Unlock()
@@ -169,26 +170,13 @@ func (tm *TeacherManager) GetTeacherInfo(id int64) (*Teacher, error) {
 	return ret, err
 }
 
-// GetTeacherList: GetTeacherList
-func (tm *TeacherManager) GetTeacherList(ids []int64) (TeacherList, error) {
-	ret := TeacherList{}
-	tm.mutex.Lock()
-	for _, v := range ids {
-		if val, ok := tm.idMap[v]; ok {
-			tmp := *val
-			ret = append(ret, &tmp)
-		}
-	}
-	tm.mutex.Unlock()
-	return ret, nil
-}
-
 // Filter: Filter
 func (tm *TeacherManager) Filter(f *TeacherFilter) base.CommList {
 	ret := TeacherList{}
 	total := 0
 	start := (f.Page - 1) * f.Size
 	end := f.Page * f.Size
+	idx := 0
 
 	logs.Debug("[TeacherManager::GetAll]", "start", start, "end", end)
 	tm.mutex.Lock()
@@ -202,16 +190,18 @@ func (tm *TeacherManager) Filter(f *TeacherFilter) base.CommList {
 		}
 
 		total++
-		tmp := v
+		if idx < start || idx >= end {
+			idx++
+			continue
+		}
+		idx++
+		tmp := v.GetListItem()
+		tmp.Subject = Sm.getSubjectName(v.SubjectID)
 		ret = append(ret, tmp)
 	}
 
 	tm.mutex.Unlock()
 	sort.Sort(ret)
-	ret = ret.Page(f.Page, f.Size)
-	for k, v := range ret {
-		ret[k].Subject = Sm.getSubjectName(v.SubjectID)
-	}
 	return base.CommList{Total: total, List: ret}
 }
 
