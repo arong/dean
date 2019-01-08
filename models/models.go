@@ -743,15 +743,14 @@ func (tl SubjectList) Less(i, j int) bool {
 }
 
 type Teacher struct {
-	Name      string `json:"name"`
 	TeacherID int64  `json:"teacher_id"`
 	SubjectID int    `json:"subject_id"`
+	Gender    int    `json:"gender"`
+	Age       int    `json:"age"`
+	Name      string `json:"name"`
 	Subject   string `json:"subject"`
 	Mobile    string `json:"mobile"`
-	Gender    int    `json:"gender"`
 	Birthday  string `json:"birthday"`
-	Age       int    `json:"age"`
-	RealName  string `json:"real_name"`
 	Address   string `json:"address"`
 }
 

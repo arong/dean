@@ -58,7 +58,7 @@ func (tm *TeacherManager) Init(data map[int64]*Teacher) {
 	} else {
 		tm.idMap = data
 		for _, v := range data {
-			tm.nameMap[v.RealName] = v
+			tm.nameMap[v.Name] = v
 		}
 	}
 }
@@ -69,7 +69,7 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 		return errInvalidParam
 	}
 
-	if _, ok := tm.nameMap[t.RealName]; ok {
+	if _, ok := tm.nameMap[t.Name]; ok {
 		return errNameExist
 	}
 
@@ -88,7 +88,7 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) error {
 	// add to map
 	{
 		tm.mutex.Lock()
-		tm.nameMap[t.RealName] = t
+		tm.nameMap[t.Name] = t
 		tm.idMap[t.TeacherID] = t
 		tm.mutex.Unlock()
 	}
@@ -118,7 +118,7 @@ func (tm *TeacherManager) ModTeacher(t *Teacher) error {
 
 	{
 		tm.mutex.Lock()
-		tm.nameMap[t.RealName] = t
+		tm.nameMap[t.Name] = t
 		tm.idMap[t.TeacherID] = t
 		tm.mutex.Unlock()
 	}
@@ -148,7 +148,7 @@ func (tm *TeacherManager) DelTeacher(idList []int64) ([]int64, error) {
 		}
 
 		// remove from map
-		delete(tm.nameMap, val.RealName)
+		delete(tm.nameMap, val.Name)
 		delete(tm.idMap, val.TeacherID)
 	}
 	return failed, nil
@@ -197,7 +197,7 @@ func (tm *TeacherManager) Filter(f *TeacherFilter) base.CommList {
 			continue
 		}
 
-		if f.Name != "" && f.Name != v.RealName {
+		if f.Name != "" && f.Name != v.Name {
 			continue
 		}
 
@@ -220,7 +220,7 @@ func (tm *TeacherManager) GetAll() base.CommList {
 	ret := simpleTeacherList{}
 	tm.mutex.Lock()
 	for _, v := range tm.idMap {
-		ret = append(ret, simpleTeacher{Name: v.RealName, ID: v.TeacherID})
+		ret = append(ret, simpleTeacher{Name: v.Name, ID: v.TeacherID})
 	}
 	tm.mutex.Unlock()
 	sort.Sort(ret)
@@ -254,7 +254,7 @@ func (tm *TeacherManager) CheckInstructorList(list InstructorList) error {
 		if t, ok := tm.idMap[v.TeacherID]; ok {
 			if t.SubjectID != 0 && t.SubjectID != v.SubjectID {
 				logs.Debug("[CheckInstructorList]", "t.SubjectID", t.SubjectID, "v.SubjectID", v.SubjectID)
-				return fmt.Errorf("teacher %s and subject %d not match", t.RealName, v.SubjectID)
+				return fmt.Errorf("teacher %s and subject %d not match", t.Name, v.SubjectID)
 			}
 		} else {
 			return errors.New(fmt.Sprintf("teacher %d not found", v.TeacherID))

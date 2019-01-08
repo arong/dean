@@ -75,7 +75,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 
 		for rows.Next() {
 			tmp := &Teacher{}
-			err = rows.Scan(&tmp.TeacherID, &tmp.Gender, &tmp.RealName, &tmp.Mobile, &tmp.SubjectID, &tmp.Birthday, &tmp.Address)
+			err = rows.Scan(&tmp.TeacherID, &tmp.Gender, &tmp.Name, &tmp.Mobile, &tmp.SubjectID, &tmp.Birthday, &tmp.Address)
 			if err != nil {
 				logs.Warn("[LoadAllData] data error at tbTeacher")
 				continue
@@ -284,7 +284,7 @@ func (ma *mysqlAgent) InsertTeacher(t *Teacher) error {
 	}
 	defer stmtIns.Close()
 
-	resp, err := stmtIns.Exec(t.Gender, t.RealName, t.Mobile, t.Birthday, t.Address, t.SubjectID)
+	resp, err := stmtIns.Exec(t.Gender, t.Name, t.Mobile, t.Birthday, t.Address, t.SubjectID)
 	if err != nil {
 		return err
 	}
@@ -301,7 +301,7 @@ func (ma *mysqlAgent) UpdateTeacher(t *Teacher) error {
 	}
 	defer stmtIns.Close()
 
-	_, err = stmtIns.Exec(t.Gender, t.RealName, t.Mobile, t.Birthday, t.SubjectID, t.Address, t.TeacherID)
+	_, err = stmtIns.Exec(t.Gender, t.Name, t.Mobile, t.Birthday, t.SubjectID, t.Address, t.TeacherID)
 	if err != nil {
 		return err
 	}

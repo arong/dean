@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/signal"
 	"strconv"
@@ -123,7 +124,7 @@ func main() {
 	}
 
 	// config log
-	logs.SetLogger(logs.AdapterFile, `{"filename":"dean.log","level":7,"maxlines":0,"maxsize":0,"daily":true,"maxdays":10}`)
+	logs.SetLogger(logs.AdapterFile, `{"filename":"./log/dean.log","level":7,"maxlines":0,"maxsize":0,"daily":true,"maxdays":10}`)
 
 	// init modules
 	models.Init(&conf)
