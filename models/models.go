@@ -21,6 +21,7 @@ var (
 	ErrBirthday = errors.New("invalid birthday")
 	errAddress  = errors.New("invalid address")
 	errMobile   = errors.New("invalid mobile number")
+	errSubject  = errors.New("invalid subject id")
 )
 
 /*
@@ -770,11 +771,11 @@ func (tl SubjectList) Less(i, j int) bool {
 }
 
 type Teacher struct {
-	Status int `json:"status"`
+	Status int `json:"-"`
 	TeacherMeta
 }
 
-func (t *Teacher) Check() error {
+func (t Teacher) Check() error {
 	if t.Gender < eGenderMale || t.Gender > eGenderUnknown {
 		return ErrGender
 	}
@@ -806,6 +807,12 @@ func (t *Teacher) Check() error {
 
 	if utf8.RuneCountInString(t.Address) > 64 {
 		return errAddress
+	}
+
+	if t.SubjectID != 0 {
+		if !Sm.IsExist(t.SubjectID) {
+			return errSubject
+		}
 	}
 	return nil
 }
@@ -875,6 +882,16 @@ type TeacherMeta struct {
 	Birthday  string `json:"birthday,omitempty"`
 	Address   string `json:"address,omitempty"`
 	Subject   string `json:"subject,omitempty"`
+}
+
+func (t TeacherMeta) Equal(r TeacherMeta) bool {
+	return t.SubjectID == r.SubjectID &&
+		t.Gender == r.Gender &&
+		t.Name == r.Name &&
+		t.Mobile == r.Mobile &&
+		t.Birthday == r.Birthday &&
+		t.Address == r.Address &&
+		t.Subject == r.Subject
 }
 
 type TeacherInfoResp struct {

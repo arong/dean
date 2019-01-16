@@ -27,12 +27,24 @@ func main() {
 
 	err = DeleteAllSubject(subject)
 	err = DeleteAllTeacher(list)
-	//
-	//subject = AddMultiSubject()
-	//err = AddMultiTeachers()
-	//if err != nil {
-	//	log.Println("add teacher failed", err)
-	//	return
-	//}
+
+	err = TeacherNormalFlow()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	err = TeacherAbnormalFlow()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	subject = AddMultiSubject()
+
+	err = AddMultiTeachers(subject)
+	if err != nil {
+		log.Println("add teacher failed", err)
+		return
+	}
 
 }

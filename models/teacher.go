@@ -63,9 +63,18 @@ func (tm *TeacherManager) save(t Teacher) {
 	tm.idMap[t.TeacherID] = k
 }
 
+func (tm *TeacherManager) get(id int64) (Teacher, error) {
+	k, ok := tm.idMap[id]
+	if !ok {
+		return Teacher{}, errNotExist
+	}
+	return tm.store[k], nil
+}
+
 func (tm *TeacherManager) update(t Teacher) {
 	k, ok := tm.idMap[t.TeacherID]
 	if !ok {
+		logs.Warn("bug found")
 		return
 	}
 	tm.store[k] = t
@@ -79,7 +88,6 @@ func (tm *TeacherManager) delete(k int) {
 	curr := atomic.AddInt32(&tm.deletedCount, 1)
 
 	if len(tm.store) > 0 && float64(curr)/float64(len(tm.store)) >= 0.75 {
-		logs.Warn("fire a delete signal")
 		tm.ch <- true
 	}
 }
@@ -88,17 +96,18 @@ func (tm *TeacherManager) doClean() {
 	tm.mutex.Lock()
 	defer tm.mutex.Unlock()
 
-	if float64(tm.deletedCount)/float64(len(tm.store)) >= 0.75 {
+	if len(tm.store) > 0 && float64(tm.deletedCount)/float64(len(tm.store)) >= 0.75 {
 		list := TeacherList{}
+		idMap := make(map[int64]int)
+		nameMap := make(map[string]int)
+
 		for _, v := range tm.store {
 			if v.Status == base.StatusDeleted {
 				continue
 			}
+
 			list = append(list, v)
-		}
-		idMap := make(map[int64]int)
-		nameMap := make(map[string]int)
-		for k, v := range list {
+			k := len(list) - 1
 			idMap[v.TeacherID] = k
 			nameMap[v.Name] = k
 		}
@@ -106,6 +115,7 @@ func (tm *TeacherManager) doClean() {
 		tm.store = list
 		tm.idMap = idMap
 		tm.nameMap = nameMap
+		// reset delete count
 		atomic.StoreInt32(&tm.deletedCount, 0)
 	}
 }
@@ -197,7 +207,41 @@ func (tm *TeacherManager) ModTeacher(t *Teacher) error {
 		return err
 	}
 
-	err = Ma.UpdateTeacher(*t)
+	curr, err := tm.get(t.TeacherID)
+	if err != nil {
+		logs.Info("[TeacherManager::ModTeacher] id not found", "err", err)
+		return err
+	}
+
+	if curr.Equal(t.TeacherMeta) {
+		logs.Info("[TeacherManager::ModTeacher] nothing to do")
+		return nil
+	}
+
+	// accept change
+	if curr.Name != t.Name {
+		return errors.New("name could not change")
+	}
+
+	// subject
+	if curr.SubjectID != t.SubjectID {
+		curr.SubjectID = t.SubjectID
+	}
+
+	if curr.Mobile != t.Mobile {
+		curr.Mobile = t.Mobile
+	}
+
+	if curr.Birthday != t.Birthday {
+		curr.Birthday = t.Birthday
+		curr.Age = t.Age
+	}
+
+	if curr.Address != t.Address {
+		curr.Address = t.Address
+	}
+
+	err = Ma.UpdateTeacher(curr)
 	if err != nil {
 		logs.Info("[TeacherManager::ModTeacher] UpdateTeacher failed", "err", err)
 		return err
@@ -205,7 +249,7 @@ func (tm *TeacherManager) ModTeacher(t *Teacher) error {
 
 	{
 		tm.mutex.Lock()
-		tm.update(*t)
+		tm.update(curr)
 		tm.mutex.Unlock()
 	}
 	return nil
