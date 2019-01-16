@@ -24,5 +24,5 @@ const (
 	// status code
 	StatusValid    = 1 // Imply that this meta is available
 	StatusArchived = 2 // Imply that this meta will be no longer in use, just exist for reference
-	StatusAbandon  = 3 // Imply that this data is dropped by user
+	StatusDeleted  = 3 // Imply that this data is dropped by user
 )

@@ -20,6 +20,7 @@ type TeacherController struct {
 // @Success 200 {string} models.Teacher.TeacherID
 // @router /add [post]
 func (o *TeacherController) Add() {
+	var id int64
 	request := models.Teacher{}
 	resp := BaseResponse{Code: -1}
 
@@ -30,14 +31,16 @@ func (o *TeacherController) Add() {
 		goto Out
 	}
 
-	err = models.Tm.AddTeacher(&request)
+	id, err = models.Tm.AddTeacher(&request)
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out
 	}
 	resp.Code = 0
 	resp.Msg = msgSuccess
-	resp.Data = nil
+	resp.Data = struct {
+		ID int64 `json:"id"`
+	}{ID: id}
 Out:
 	o.Data["json"] = resp
 	o.ServeJSON()
@@ -195,6 +198,11 @@ func (tc *TeacherController) Delete() {
 
 	resp.Code = 0
 	resp.Msg = msgSuccess
+	if len(ret.FailedList) > 0 {
+		resp.Data = struct {
+			FailedList []int64 `json:"failed_list,omitempty"`
+		}{FailedList: ret.FailedList}
+	}
 Out:
 	tc.Data["json"] = resp
 	tc.ServeJSON()

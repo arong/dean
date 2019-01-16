@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 )
 
@@ -9,27 +8,31 @@ var host = "http://127.0.0.1:2008"
 
 func main() {
 	// 1. login
-	token, err := login(host, "aronic", "123456")
+	_, err := login(host, "aronic", "123456")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(token)
+
+	// remove all data
+	subject, err := GetAllSubjects()
+	log.Println(len(subject))
 
 	// list
-	list, err := getTeacherList(host)
+	list, err := GetTeacherListAll(host)
 	if err != nil {
 		return
 	}
 
-	for _, v := range list {
-		info, err := getTeacherInfo(v.TeacherID)
-		if err != nil {
-			fmt.Println(err)
-		}
-		if info.Name != v.Name || info.TeacherID != v.TeacherID || info.SubjectID != v.SubjectID {
-			fmt.Println("failed")
-			break
-		}
-	}
+	log.Println("total teacher num:", len(list))
+
+	err = DeleteAllSubject(subject)
+	err = DeleteAllTeacher(list)
+	//
+	//subject = AddMultiSubject()
+	//err = AddMultiTeachers()
+	//if err != nil {
+	//	log.Println("add teacher failed", err)
+	//	return
+	//}
 
 }

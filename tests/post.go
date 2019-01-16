@@ -14,7 +14,7 @@ import (
 
 var token string
 
-func sendPostRequest(URL string, data interface{}) ([]byte, error) {
+func sendPostRequest(URL string, data interface{}) (json.RawMessage, error) {
 	req := struct {
 		Token     string      `json:"token"`
 		Timestamp int64       `json:"timestamp"`
@@ -31,7 +31,7 @@ func sendPostRequest(URL string, data interface{}) ([]byte, error) {
 		return nil, err
 	}
 
-	fmt.Println(string(buff))
+	//fmt.Println(string(buff))
 	request, err := http.NewRequest("POST", URL, strings.NewReader(string(buff)))
 	if err != nil {
 		return nil, err
@@ -56,9 +56,9 @@ func sendPostRequest(URL string, data interface{}) ([]byte, error) {
 	}
 
 	ret := struct {
-		Code int         `json:"code"`
-		Msg  string      `json:"msg"`
-		Data interface{} `json:"data"`
+		Code int             `json:"code"`
+		Msg  string          `json:"msg"`
+		Data json.RawMessage `json:"data"`
 	}{}
 
 	err = json.Unmarshal(buff, &ret)
@@ -70,11 +70,7 @@ func sendPostRequest(URL string, data interface{}) ([]byte, error) {
 		return nil, fmt.Errorf("%s", ret.Msg)
 	}
 
-	buff, err = json.Marshal(ret.Data)
-	if err != nil {
-		return nil, err
-	}
-	return buff, nil
+	return ret.Data, nil
 }
 
 func sendGetRequest(URL string, data interface{}) ([]byte, error) {

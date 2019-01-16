@@ -2,8 +2,9 @@ package main
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
-	"strings"
+	"log"
 )
 
 func login(host, name, password string) (string, error) {
@@ -19,16 +20,23 @@ func login(host, name, password string) (string, error) {
 	}
 
 	data.Password = fmt.Sprintf("%x", sha256.Sum256([]byte(password)))
-	fmt.Println(data.Password)
 
 	buff, err := sendPostRequest(host+url, data)
 	if err != nil {
+		log.Println("sendPostRequest failed", err)
 		return "", err
 	}
 
 	// set global token
-	token = string(buff)
-	token = strings.Replace(token, "\"", "", -1)
+	ret := struct {
+		Token string `json:"token"`
+	}{}
+	err = json.Unmarshal([]byte(buff), &ret)
+	if err != nil {
+		log.Println("unrecognized return value", string(buff))
+		return "", err
+	}
+	token = ret.Token
 
 	return token, nil
 }

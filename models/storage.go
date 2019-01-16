@@ -19,8 +19,6 @@ import (
 var Ma mysqlAgent
 
 const (
-	eStatusDeleted = 2
-	eStatusNormal  = 1
 	defultBirthday = "0000-00-00"
 )
 
@@ -66,8 +64,9 @@ func (ma *mysqlAgent) LoadAllData() error {
 
 	// load all teachers
 	teacherMap := make(map[int64]*Teacher)
+	teacherList := TeacherList{}
 	{
-		rows, err := ma.db.Query("SELECT iTeacherID,eGender,vName,vMobile,iSubjectID,dtBirthday,vAddress FROM tbTeacher WHERE eStatus = 1;")
+		rows, err := ma.db.Query("SELECT iTeacherID,eGender,vName,vMobile,iSubjectID,dtBirthday,vAddress,eStatus FROM tbTeacher WHERE eStatus = 1;")
 		if err != nil {
 			logs.Error("[LoadAllData] failed to load tbTeacher", "err", err)
 			return err
@@ -76,7 +75,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 
 		for rows.Next() {
 			tmp := &Teacher{}
-			err = rows.Scan(&tmp.TeacherID, &tmp.Gender, &tmp.Name, &tmp.Mobile, &tmp.SubjectID, &tmp.Birthday, &tmp.Address)
+			err = rows.Scan(&tmp.TeacherID, &tmp.Gender, &tmp.Name, &tmp.Mobile, &tmp.SubjectID, &tmp.Birthday, &tmp.Address, &tmp.Status)
 			if err != nil {
 				logs.Warn("[LoadAllData] data error at tbTeacher")
 				continue
@@ -92,11 +91,12 @@ func (ma *mysqlAgent) LoadAllData() error {
 				tmp.Birthday = ""
 			}
 			teacherMap[tmp.TeacherID] = tmp
+			teacherList = append(teacherList, *tmp)
 		}
 	}
 
 	// init teacher manager
-	Tm.Init(teacherMap)
+	Tm.Init(teacherList)
 
 	// load class
 	classMap := make(map[int]*Class)
@@ -316,17 +316,20 @@ func (ma *mysqlAgent) UpdateTeacher(t Teacher) error {
 }
 
 // DeleteTeacher delete teacher info
-func (ma *mysqlAgent) DeleteTeacher(teacherID int64) error {
+func (ma *mysqlAgent) DeleteTeacher(id []int64) error {
 	stmtIns, err := ma.db.Prepare("UPDATE tbTeacher set eStatus=? WHERE iTeacherID=?;")
 	if err != nil {
 		return err
 	}
 	defer stmtIns.Close()
 
-	_, err = stmtIns.Exec(eStatusDeleted, teacherID)
-	if err != nil {
-		return err
+	for _, v := range id {
+		_, err = stmtIns.Exec(base.StatusDeleted, v)
+		if err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
 
@@ -424,7 +427,7 @@ func (ma *mysqlAgent) DeleteClass(id int) error {
 	}
 	defer stmtIns.Close()
 
-	_, err = stmtIns.Exec(eStatusDeleted, id)
+	_, err = stmtIns.Exec(base.StatusDeleted, id)
 	if err != nil {
 		logs.Warn("execute sql failed", "err", err)
 		return err
@@ -493,7 +496,7 @@ func (ma *mysqlAgent) DeleteStudent(uid int64) error {
 	}
 	defer stmtIns.Close()
 
-	_, err = stmtIns.Exec(eStatusDeleted, uid)
+	_, err = stmtIns.Exec(base.StatusDeleted, uid)
 	if err != nil {
 		logs.Warn("execute sql failed", "err", err)
 		return err
@@ -612,7 +615,7 @@ func (ma *mysqlAgent) DeleteSubject(id int) error {
 	}
 	defer stmtIns.Close()
 
-	resp, err := stmtIns.Exec(eStatusDeleted, id)
+	resp, err := stmtIns.Exec(base.StatusDeleted, id)
 	if err != nil {
 		logs.Warn("[DeleteSubject] execute sql failed", "err", err)
 		return err
@@ -690,7 +693,7 @@ func (ma *mysqlAgent) ExpireQuestionnaire(q *QuestionnaireInfo) error {
 	}
 	defer stmtIns.Close()
 
-	resp, err := stmtIns.Exec(eStatusDeleted, q.Title, q.StartTime, q.StopTime, q.Status)
+	resp, err := stmtIns.Exec(base.StatusDeleted, q.Title, q.StartTime, q.StopTime, q.Status)
 	if err != nil {
 		logs.Warn("[AddQuestionnaire] execute sql failed", "err", err)
 		return err

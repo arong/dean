@@ -1,15 +1,26 @@
 package models
 
 import (
-	"github.com/bearbin/go-age"
 	"sort"
+	"strings"
 	"time"
+	"unicode/utf8"
+
+	"github.com/bearbin/go-age"
 
 	"github.com/astaxie/beego"
 
 	"github.com/arong/dean/base"
 	"github.com/astaxie/beego/logs"
 	"github.com/pkg/errors"
+)
+
+var (
+	ErrName     = errors.New("invalid name")
+	ErrGender   = errors.New("invalid gender")
+	ErrBirthday = errors.New("invalid birthday")
+	errAddress  = errors.New("invalid address")
+	errMobile   = errors.New("invalid mobile number")
 )
 
 /*
@@ -34,6 +45,21 @@ func (c *DBConfig) GetConf() error {
 
 	logs.Debug(*c)
 	return nil
+}
+
+type IntList []int
+
+func (il IntList) Page(page base.CommPage) IntList {
+	start, end := page.GetRange()
+	size := len(il)
+	ret := IntList{}
+	if start >= size {
+		return ret
+	} else if end > size {
+		return il[start:]
+	} else {
+		return il[start:end]
+	}
 }
 
 type Item struct {
@@ -744,48 +770,47 @@ func (tl SubjectList) Less(i, j int) bool {
 }
 
 type Teacher struct {
-	TeacherID int64  `json:"teacher_id"`
-	SubjectID int    `json:"subject_id"`
-	Gender    int    `json:"gender"`
-	Age       int    `json:"age"`
-	Name      string `json:"name"`
-	Mobile    string `json:"mobile"`
-	Birthday  string `json:"birthday"`
-	Address   string `json:"address"`
+	Status int `json:"status"`
+	TeacherMeta
 }
 
-func (t *Teacher) IsValid() error {
-	//if t.Mobile == "" {
-	//	return errors.New("invalid mobile")
-	//}
+func (t *Teacher) Check() error {
+	if t.Gender < eGenderMale || t.Gender > eGenderUnknown {
+		return ErrGender
+	}
 
-	//if t.Gender < eGenderMale && t.Gender > eGenderUnknown {
-	//	return errors.New("invalid gender")
-	//}
+	t.Name = strings.TrimSpace(t.Name)
+	if t.Name == "" {
+		return ErrName
+	}
+
+	if utf8.RuneCountInString(t.Name) > 16 {
+		return ErrName
+	}
+
+	if len(t.Mobile) > 11 {
+		return errMobile
+	}
+
+	if len(t.Birthday) > 10 {
+		return ErrBirthday
+	}
 
 	if t.Birthday != "" {
 		birth, err := time.Parse("2006-01-02", t.Birthday)
 		if err != nil {
-			return errors.New("invalid birthday")
+			return ErrBirthday
 		}
 		t.Age = age.Age(birth)
+	}
+
+	if utf8.RuneCountInString(t.Address) > 64 {
+		return errAddress
 	}
 	return nil
 }
 
-func (t *Teacher) GetListItem() TeacherListItem {
-	return TeacherListItem{
-		TeacherID: t.TeacherID,
-		Name:      t.Name,
-		Gender:    t.Gender,
-		Age:       t.Age,
-		Mobile:    t.Mobile,
-		Birthday:  t.Birthday,
-		Address:   t.Address,
-	}
-}
-
-type TeacherList []TeacherListItem
+type TeacherList []Teacher
 
 func (tl TeacherList) Len() int {
 	return len(tl)
@@ -799,19 +824,38 @@ func (tl TeacherList) Less(i, j int) bool {
 	return tl[i].TeacherID < tl[j].TeacherID
 }
 
-//func (tl TeacherList) Page(idx, size int) TeacherList {
-//	start := (idx - 1) * size
-//	end := idx * size
-//	total := len(tl)
-//
-//	if start >= total {
-//		return TeacherList{}
-//	} else if end > total {
-//		return tl[start:]
-//	} else {
-//		return tl[start:end]
-//	}
-//}
+func (tl TeacherList) Page(page, size int) TeacherList {
+	start := (page - 1) * size
+	end := page * size
+	total := len(tl)
+
+	if start >= total {
+		return TeacherList{}
+	} else if end > total {
+		return tl[start:]
+	} else {
+		return tl[start:end]
+	}
+}
+
+func (tl TeacherList) Filter(f TeacherFilter) TeacherList {
+	list := TeacherList{}
+	for _, v := range tl {
+		if v.Status != base.StatusValid {
+			continue
+		}
+
+		if f.Gender != 0 && f.Gender != v.Gender {
+			continue
+		}
+
+		if f.Name != "" && f.Name != v.Name {
+			continue
+		}
+		list = append(list, v)
+	}
+	return list
+}
 
 type TeacherFilter struct {
 	base.CommPage
@@ -821,21 +865,23 @@ type TeacherFilter struct {
 	Mobile string `json:"mobile"`
 }
 
-type TeacherListItem struct {
+type TeacherMeta struct {
 	TeacherID int64  `json:"teacher_id"`
+	SubjectID int    `json:"subject_id"`
 	Gender    int    `json:"gender"`
 	Age       int    `json:"age"`
 	Name      string `json:"name,omitempty"`
-	Subject   string `json:"subject,omitempty"`
 	Mobile    string `json:"mobile,omitempty"`
 	Birthday  string `json:"birthday,omitempty"`
 	Address   string `json:"address,omitempty"`
+	Subject   string `json:"subject,omitempty"`
 }
 
 type TeacherInfoResp struct {
-	TeacherListItem
+	TeacherMeta
 	SubjectID int `json:"subject_id"`
 }
+
 type simpleTeacher struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`

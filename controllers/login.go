@@ -48,7 +48,9 @@ func (l *AuthController) Login() {
 
 	resp.Code = 0
 	resp.Msg = msgSuccess
-	resp.Data = token
+	resp.Data = struct {
+		Token string `json:"token"`
+	}{Token: token}
 	logs.Info("[AuthController::Login] login success", req.LoginName, resp)
 
 Out:
