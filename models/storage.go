@@ -19,7 +19,7 @@ import (
 var Ma mysqlAgent
 
 const (
-	defultBirthday = "0000-00-00"
+	defaultBirthday = "0000-00-00"
 )
 
 type mysqlAgent struct {
@@ -42,6 +42,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 
 	// load all subject info
 	subjectMap := make(map[int]SubjectInfo)
+	subjectList := SubjectList{}
 	{
 		rows, err := ma.db.Query("select iSubjectID,vSubjectKey, vSubjectName from tbSubject where eStatus =1;")
 		if err != nil {
@@ -58,9 +59,10 @@ func (ma *mysqlAgent) LoadAllData() error {
 				continue
 			}
 			subjectMap[tmp.ID] = tmp
+			subjectList = append(subjectList, tmp)
 		}
 	}
-	Sm.subject = subjectMap
+	Sm.Init(subjectList)
 
 	// load all teachers
 	teacherMap := make(map[int64]*Teacher)
@@ -80,7 +82,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 				logs.Warn("[LoadAllData] data error at tbTeacher")
 				continue
 			}
-			if tmp.Birthday != defultBirthday {
+			if tmp.Birthday != defaultBirthday {
 				birth, err := time.Parse(base.DateFormat, tmp.Birthday)
 				if err != nil {
 					logs.Warn("[LoadAllData] data error at tbTeacher", "birthday", tmp.Birthday, "err", err)
@@ -281,7 +283,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 // InsertTeacher insert teacher info
 func (ma *mysqlAgent) InsertTeacher(t Teacher) (int64, error) {
 	if t.Birthday == "" {
-		t.Birthday = defultBirthday
+		t.Birthday = defaultBirthday
 	}
 	// Prepare statement for inserting data
 	stmtIns, err := ma.db.Prepare("INSERT INTO `tbTeacher` (`eGender`, `vName`, `vMobile`, `dtBirthday`, `vAddress`, `iSubjectID`) VALUES (?,?,?,?,?,?);")
@@ -306,7 +308,7 @@ func (ma *mysqlAgent) UpdateTeacher(t Teacher) error {
 	defer stmtIns.Close()
 
 	if t.Birthday == "" {
-		t.Birthday = defultBirthday
+		t.Birthday = defaultBirthday
 	}
 	_, err = stmtIns.Exec(t.Gender, t.Name, t.Mobile, t.Birthday, t.SubjectID, t.Address, t.TeacherID)
 	if err != nil {
@@ -559,7 +561,7 @@ func (ma *mysqlAgent) ResetAllPassword(password string) error {
 }
 
 // AddSubject add subject info
-func (ma *mysqlAgent) AddSubject(s *SubjectInfo) (int, error) {
+func (ma *mysqlAgent) SaveSubject(s SubjectInfo) (int, error) {
 	stmtIns, err := ma.db.Prepare("INSERT INTO tbSubject (`vSubjectKey`, `vSubjectName`) VALUES (?,?);")
 	if err != nil {
 		return 0, err
@@ -581,7 +583,7 @@ func (ma *mysqlAgent) AddSubject(s *SubjectInfo) (int, error) {
 }
 
 // UpdateSubject update subject info
-func (ma *mysqlAgent) UpdateSubject(s *SubjectInfo) error {
+func (ma *mysqlAgent) UpdateSubject(s SubjectInfo) error {
 	stmtIns, err := ma.db.Prepare("UPDATE tbSubject SET `vSubjectKey`=? WHERE `iSubjectID`=?;")
 	if err != nil {
 		return err

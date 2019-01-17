@@ -751,9 +751,15 @@ type profile struct {
 
 // SubjectInfo: subject meta info
 type SubjectInfo struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-	Key  string `json:"key"`
+	Status int    `json:"status"`
+	ID     int    `json:"id"`
+	Name   string `json:"name"`
+	Key    string `json:"key"`
+}
+
+func (s SubjectInfo) Equal(r SubjectInfo) bool {
+	return s.Name == r.Name &&
+		s.Key == r.Key
 }
 
 type SubjectList []SubjectInfo

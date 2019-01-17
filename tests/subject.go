@@ -36,12 +36,12 @@ func AddMultiSubject() models.SubjectList {
 		{Key: "P.E.", Name: "体育"},
 	}
 
-	for _, v := range subject {
+	for k, v := range subject {
 		id, err := addSubject(v)
 		if err != nil {
 			log.Println("add subject failed")
 		}
-		v.ID = id
+		subject[k].ID = id
 	}
 	return subject
 }
@@ -69,7 +69,7 @@ func DeleteAllSubject(list models.SubjectList) error {
 
 	for k, v := range list {
 		load = append(load, v.ID)
-		if k%100 == 0 || k == end {
+		if (k+1)%100 == 0 || k == end {
 			err := delSubject(load)
 			if err != nil {
 				return err
@@ -89,10 +89,13 @@ func delSubject(id []int) error {
 		return err
 	}
 
-	failedList := []int{}
-	err = json.Unmarshal(resp, failedList)
-	if err != nil {
-		return err
+	if len(resp) > 0 {
+		failedList := []int{}
+		err = json.Unmarshal(resp, &failedList)
+		if err != nil {
+			return err
+		}
+		log.Println(failedList)
 	}
 	return nil
 }

@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+
 	"github.com/arong/dean/base"
 	"github.com/arong/dean/models"
 	"github.com/astaxie/beego"
@@ -43,7 +44,9 @@ func (s *SubjectController) Add() {
 		resp.Msg = err.Error()
 		goto Out
 	}
-
+	resp.Data = struct {
+		ID int `json:"id"`
+	}{ID: request.ID}
 Out:
 	s.Data["json"] = resp
 	s.ServeJSON()
@@ -109,19 +112,14 @@ func (s *SubjectController) Delete() {
 		goto Out
 	}
 
-	for _, v := range request.IDList {
-		if v == 0 {
-			logs.Debug("[SubjectController::Delete] invalid class id")
-			resp.Code = base.ErrInvalidParameter
-			goto Out
-		}
+	failedList, err = models.Sm.Delete(request.IDList)
+	if err != nil {
+		logs.Debug("[SubjectController::Delete] invalid class id")
+		resp.Code = base.ErrInternal
+	}
 
-		err = models.Sm.Delete(v)
-		if err != nil {
-			logs.Debug("[SubjectController::Delete] Delete failed", "err", err)
-			resp.Code = base.ErrPartialFailed
-			failedList = append(failedList, v)
-		}
+	if len(failedList) > 0 {
+		resp.Data = failedList
 	}
 
 Out:

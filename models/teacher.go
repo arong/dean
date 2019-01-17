@@ -155,6 +155,9 @@ func (tm *TeacherManager) Init(data TeacherList) {
 	for k, v := range data {
 		tm.nameMap[v.Name] = k
 		tm.idMap[v.TeacherID] = k
+		if v.SubjectID > 0 {
+			Sm.IncRef(v.SubjectID)
+		}
 	}
 
 	tm.mutex.Unlock()
@@ -191,6 +194,9 @@ func (tm *TeacherManager) AddTeacher(t *Teacher) (int64, error) {
 		tm.mutex.Unlock()
 	}
 
+	if t.SubjectID > 0 {
+		Sm.IncRef(t.SubjectID)
+	}
 	return t.TeacherID, nil
 }
 
@@ -224,6 +230,7 @@ func (tm *TeacherManager) ModTeacher(t *Teacher) error {
 	}
 
 	// subject
+	oldSubjectID := curr.SubjectID
 	if curr.SubjectID != t.SubjectID {
 		curr.SubjectID = t.SubjectID
 	}
@@ -252,6 +259,12 @@ func (tm *TeacherManager) ModTeacher(t *Teacher) error {
 		tm.update(curr)
 		tm.mutex.Unlock()
 	}
+
+	if oldSubjectID != curr.SubjectID {
+		Sm.IncRef(curr.SubjectID)
+		Sm.DecRef(oldSubjectID)
+	}
+
 	return nil
 }
 
