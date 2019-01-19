@@ -1,17 +1,13 @@
 package models
 
 import (
-	"errors"
-	"fmt"
-	"os"
-	"sort"
-	"sync"
-	"sync/atomic"
+	"strings"
 	"time"
+	"unicode/utf8"
+
+	"github.com/bearbin/go-age"
 
 	"github.com/arong/dean/base"
-
-	"github.com/astaxie/beego/logs"
 )
 
 const (
@@ -20,302 +16,115 @@ const (
 	eGenderUnknown = 3
 )
 
-// Tm a global handler
-var Tm TeacherManager
+type TeacherMeta struct {
+	TeacherID int64  `json:"teacher_id"`
+	SubjectID int    `json:"subject_id"`
+	Gender    int    `json:"gender"`
+	Age       int    `json:"age"`
+	Name      string `json:"name,omitempty"`
+	Mobile    string `json:"mobile,omitempty"`
+	Birthday  string `json:"birthday,omitempty"`
+	Address   string `json:"address,omitempty"`
+	Subject   string `json:"subject,omitempty"`
+}
 
-// Init init da config
-func Init(conf *DBConfig) {
-	// allocate memory
-	Ma.Init(conf)
+func (t TeacherMeta) Equal(r TeacherMeta) bool {
+	return t.SubjectID == r.SubjectID &&
+		t.Gender == r.Gender &&
+		t.Name == r.Name &&
+		t.Mobile == r.Mobile &&
+		t.Birthday == r.Birthday &&
+		t.Address == r.Address &&
+		t.Subject == r.Subject
+}
 
-	// data warm up
-	err := Ma.LoadAllData()
-	if err != nil {
-		logs.Error("init failed", "err", err)
-		os.Exit(-1)
+type Teacher struct {
+	Status int `json:"-"`
+	TeacherMeta
+}
+
+func (t Teacher) Check() error {
+	if t.Gender < eGenderMale || t.Gender > eGenderUnknown {
+		return ErrGender
 	}
-}
 
-type TeacherManager struct {
-	// store is the ultimate list to hold all teacher info
-	// I choose list over map solely because list is good for
-	// iterator over and filter, it cause less cache miss
-	// add will always append item at tail
-	// delete will just set the status to be deleted
-	store TeacherList
-	// name map hold the name to access teacher info
-	nameMap map[string]int // 名字索引
-	// id map hold id to access teacher info
-	idMap map[int64]int // id索引表
-	// protect inner data with mutex
-	mutex sync.Mutex // 保护前两个数据表
-	// save deleted item count
-	deletedCount int32
-	// signal channel
-	ch chan bool
-}
-
-func (tm *TeacherManager) save(t Teacher) {
-	t.Status = base.StatusValid
-	tm.store = append(tm.store, t)
-	k := len(tm.store) - 1
-	tm.nameMap[t.Name] = k
-	tm.idMap[t.TeacherID] = k
-}
-
-func (tm *TeacherManager) get(id int64) (Teacher, error) {
-	k, ok := tm.idMap[id]
-	if !ok {
-		return Teacher{}, errNotExist
+	t.Name = strings.TrimSpace(t.Name)
+	if t.Name == "" {
+		return ErrName
 	}
-	return tm.store[k], nil
-}
 
-func (tm *TeacherManager) update(t Teacher) {
-	k, ok := tm.idMap[t.TeacherID]
-	if !ok {
-		logs.Warn("bug found")
-		return
+	if utf8.RuneCountInString(t.Name) > 16 {
+		return ErrName
 	}
-	tm.store[k] = t
-}
 
-func (tm *TeacherManager) delete(k int) {
-	p := &tm.store[k]
-	p.Status = base.StatusDeleted
-	delete(tm.nameMap, p.Name)
-	delete(tm.idMap, p.TeacherID)
-	curr := atomic.AddInt32(&tm.deletedCount, 1)
-
-	if len(tm.store) > 0 && float64(curr)/float64(len(tm.store)) >= 0.75 {
-		tm.ch <- true
+	if len(t.Mobile) > 11 {
+		return errMobile
 	}
-}
 
-func (tm *TeacherManager) doClean() {
-	tm.mutex.Lock()
-	defer tm.mutex.Unlock()
+	if len(t.Birthday) > 10 {
+		return ErrBirthday
+	}
 
-	if len(tm.store) > 0 && float64(tm.deletedCount)/float64(len(tm.store)) >= 0.75 {
-		list := TeacherList{}
-		idMap := make(map[int64]int)
-		nameMap := make(map[string]int)
-
-		for _, v := range tm.store {
-			if v.Status == base.StatusDeleted {
-				continue
-			}
-
-			list = append(list, v)
-			k := len(list) - 1
-			idMap[v.TeacherID] = k
-			nameMap[v.Name] = k
+	if t.Birthday != "" {
+		birth, err := time.Parse("2006-01-02", t.Birthday)
+		if err != nil {
+			return ErrBirthday
 		}
-
-		tm.store = list
-		tm.idMap = idMap
-		tm.nameMap = nameMap
-		// reset delete count
-		atomic.StoreInt32(&tm.deletedCount, 0)
-	}
-}
-
-func (tm *TeacherManager) clean() {
-	t := time.NewTicker(5 * time.Minute)
-
-	for {
-		select {
-		case <-t.C:
-			logs.Warn("scheduled clean")
-			tm.doClean()
-		case <-tm.ch:
-			logs.Warn("triggered clean")
-			tm.doClean()
-		}
-	}
-}
-
-var (
-	errInvalidParam = errors.New("invalid parameter")
-	errNameExist    = errors.New("name exist")
-)
-
-// Init: Init
-func (tm *TeacherManager) Init(data TeacherList) {
-	if tm == nil || data == nil {
-		return
-	}
-	tm.mutex.Lock()
-
-	sort.Sort(data)
-	tm.store = data
-
-	tm.nameMap = make(map[string]int)
-	tm.idMap = make(map[int64]int)
-	for k, v := range data {
-		tm.nameMap[v.Name] = k
-		tm.idMap[v.TeacherID] = k
-		if v.SubjectID > 0 {
-			Sm.IncRef(v.SubjectID)
-		}
+		t.Age = age.Age(birth)
 	}
 
-	tm.mutex.Unlock()
-	tm.ch = make(chan bool)
-	go tm.clean()
-}
-
-// AddTeacher: AddTeacher
-func (tm *TeacherManager) AddTeacher(t *Teacher) (int64, error) {
-	if t.TeacherID != 0 {
-		return 0, errInvalidParam
+	if utf8.RuneCountInString(t.Address) > 64 {
+		return errAddress
 	}
 
-	if _, ok := tm.nameMap[t.Name]; ok {
-		return 0, errNameExist
-	}
-
-	err := t.Check()
-	if err != nil {
-		logs.Warn("[TeacherManager::AddTeacher] invalid parameter", "err", err)
-		return 0, err
-	}
-
-	t.TeacherID, err = Ma.InsertTeacher(*t)
-	if err != nil {
-		logs.Warn("[TeacherManager::AddTeacher] database error")
-		return 0, err
-	}
-
-	// add to map
-	{
-		tm.mutex.Lock()
-		tm.save(*t)
-		tm.mutex.Unlock()
-	}
-
-	if t.SubjectID > 0 {
-		Sm.IncRef(t.SubjectID)
-	}
-	return t.TeacherID, nil
-}
-
-// ModTeacher: ModTeacher
-func (tm *TeacherManager) ModTeacher(t *Teacher) error {
-	if t.TeacherID == 0 {
-		logs.Info("[TeacherManager::ModTeacher] invalid parameter")
-		return errInvalidParam
-	}
-
-	err := t.Check()
-	if err != nil {
-		logs.Info("[TeacherManager::ModTeacher] invalid parameter", "err", err)
-		return err
-	}
-
-	curr, err := tm.get(t.TeacherID)
-	if err != nil {
-		logs.Info("[TeacherManager::ModTeacher] id not found", "err", err)
-		return err
-	}
-
-	if curr.Equal(t.TeacherMeta) {
-		logs.Info("[TeacherManager::ModTeacher] nothing to do")
-		return nil
-	}
-
-	// accept change
-	if curr.Name != t.Name {
-		return errors.New("name could not change")
-	}
-
-	// subject
-	oldSubjectID := curr.SubjectID
-	if curr.SubjectID != t.SubjectID {
-		curr.SubjectID = t.SubjectID
-	}
-
-	if curr.Mobile != t.Mobile {
-		curr.Mobile = t.Mobile
-	}
-
-	if curr.Birthday != t.Birthday {
-		curr.Birthday = t.Birthday
-		curr.Age = t.Age
-	}
-
-	if curr.Address != t.Address {
-		curr.Address = t.Address
-	}
-
-	err = Ma.UpdateTeacher(curr)
-	if err != nil {
-		logs.Info("[TeacherManager::ModTeacher] UpdateTeacher failed", "err", err)
-		return err
-	}
-
-	{
-		tm.mutex.Lock()
-		tm.update(curr)
-		tm.mutex.Unlock()
-	}
-
-	if oldSubjectID != curr.SubjectID {
-		Sm.IncRef(curr.SubjectID)
-		Sm.DecRef(oldSubjectID)
-	}
-
+	// todo: fixup
+	//if t.SubjectID != 0 {
+	//	if !Sm.IsExist(t.SubjectID) {
+	//		return errSubject
+	//	}
+	//}
 	return nil
 }
 
-// DelTeacher: DelTeacher
-func (tm *TeacherManager) DelTeacher(idList []int64) ([]int64, error) {
-	tm.mutex.Lock()
-	tm.mutex.Unlock()
+type TeacherList []Teacher
 
-	failed := []int64{}
-	for _, v := range idList {
-		k, ok := tm.idMap[v]
-		if !ok {
-			logs.Debug("[TeacherManager::DelTeacher] not found", "id", v)
-			failed = append(failed, v)
-			continue
-		}
-
-		// remove from map
-		tm.delete(k)
-	}
-	// delete from database
-	err := Ma.DeleteTeacher(idList)
-	if err != nil {
-		logs.Warn("[TeacherManager::DelTeacher] database error")
-	}
-	return failed, nil
+func (tl TeacherList) Len() int {
+	return len(tl)
 }
 
-// GetTeacherInfo: GetTeacherInfo
-func (tm *TeacherManager) GetTeacherInfo(id int64) (*TeacherInfoResp, error) {
-	ret := &TeacherInfoResp{}
-	err := errNotExist
-	tm.mutex.Lock()
-	if val, ok := tm.idMap[id]; ok {
-		p := tm.store[val]
-		ret.TeacherMeta = p.TeacherMeta
-		err = nil
-	}
-	tm.mutex.Unlock()
-
-	ret.Subject = Sm.getSubjectName(ret.SubjectID)
-	return ret, err
+func (tl TeacherList) Swap(i, j int) {
+	tl[i], tl[j] = tl[j], tl[i]
 }
 
-// Filter: Filter
-func (tm *TeacherManager) Filter(f *TeacherFilter) base.CommList {
-	ret := TeacherList{}
+func (tl TeacherList) Less(i, j int) bool {
+	return tl[i].TeacherID < tl[j].TeacherID
+}
 
-	tm.mutex.Lock()
-	list := IntList{}
-	for k, v := range tm.store {
+func (tl TeacherList) Page(page, size int) TeacherList {
+	start := (page - 1) * size
+	end := page * size
+	total := len(tl)
+
+	if start >= total {
+		return TeacherList{}
+	} else if end > total {
+		return tl[start:]
+	} else {
+		return tl[start:end]
+	}
+}
+
+type TeacherFilter struct {
+	base.CommPage
+	Gender int    `json:"gender"`
+	Age    int    `json:"age"`
+	Name   string `json:"name"`
+	Mobile string `json:"mobile"`
+}
+
+func (tl TeacherList) Filter(f TeacherFilter) TeacherList {
+	list := TeacherList{}
+	for _, v := range tl {
 		if v.Status != base.StatusValid {
 			continue
 		}
@@ -327,78 +136,14 @@ func (tm *TeacherManager) Filter(f *TeacherFilter) base.CommList {
 		if f.Name != "" && f.Name != v.Name {
 			continue
 		}
-		list = append(list, k)
+		list = append(list, v)
 	}
-
-	total := len(list)
-	list = list.Page(f.CommPage)
-	for _, v := range list {
-		ret = append(ret, tm.store[v])
-	}
-
-	logs.Debug("[TeacherManager::GetAll]", "len(store)", len(tm.store))
-	tm.mutex.Unlock()
-
-	return base.CommList{Total: total, List: ret}
+	return list
 }
 
-// GetAll: GetAll
-func (tm *TeacherManager) GetAll() base.CommList {
-	ret := simpleTeacherList{}
-	tm.mutex.Lock()
-	for _, v := range tm.store {
-		if v.Status == base.StatusDeleted {
-			continue
-		}
-		ret = append(ret, simpleTeacher{Name: v.Name, ID: v.TeacherID})
-	}
-	tm.mutex.Unlock()
-	sort.Sort(ret)
-	return base.CommList{Total: len(ret), List: ret}
-}
-
-// IsTeacherExist IsTeacherExist
-func (tm *TeacherManager) IsTeacherExist(id int64) bool {
-	tm.mutex.Lock()
-	_, ok := tm.idMap[id]
-	tm.mutex.Unlock()
-	return ok
-}
-
-// CheckTeachers: CheckTeachers
-func (tm *TeacherManager) CheckTeachers(ids []int64) bool {
-	tm.mutex.Lock()
-	defer tm.mutex.Unlock()
-
-	for _, v := range ids {
-		if _, ok := tm.idMap[v]; !ok {
-			return false
-		}
-	}
-	return true
-}
-
-// CheckInstructorList check to see if the id in list exist
-func (tm *TeacherManager) CheckInstructorList(list InstructorList) error {
-	for _, v := range list {
-		if t, ok := tm.idMap[v.TeacherID]; ok {
-			p := &tm.store[t]
-			if p.SubjectID != 0 && p.SubjectID != v.SubjectID {
-				logs.Debug("[CheckInstructorList]", "t.SubjectID", p.SubjectID, "v.SubjectID", v.SubjectID)
-				return fmt.Errorf("teacher %s and subject %d not match", p.Name, v.SubjectID)
-			}
-		} else {
-			return errors.New(fmt.Sprintf("teacher %d not found", v.TeacherID))
-		}
-	}
-	return nil
-}
-
-// IsExist check to see if the teacher id exist
-func (tm *TeacherManager) IsExist(id int64) bool {
-	tm.mutex.Lock()
-	defer tm.mutex.Unlock()
-
-	_, ok := tm.idMap[id]
-	return ok
+//go:generate mockgen -destination=../mocks./mock_teacher.go -package mocks github.com/arong/dean/models TeacherStore
+type TeacherStore interface {
+	SaveTeacher(Teacher) (int64, error)
+	UpdateTeacher(Teacher) error
+	DeleteTeacher([]int64) error
 }

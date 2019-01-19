@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strconv"
 
+	"github.com/arong/dean/manager"
+
 	"github.com/arong/dean/models"
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
@@ -31,7 +33,7 @@ func (o *TeacherController) Add() {
 		goto Out
 	}
 
-	id, err = models.Tm.AddTeacher(&request)
+	id, err = manager.Tm.AddTeacher(&request)
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out
@@ -69,7 +71,7 @@ func (u *TeacherController) Modify() {
 		goto Out
 	}
 
-	err = models.Tm.ModTeacher(&request)
+	err = manager.Tm.UpdateTeacher(&request)
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out
@@ -92,7 +94,7 @@ func (o *TeacherController) Get() {
 	resp := BaseResponse{Code: -1}
 	var err error
 	var id int64
-	ret := &models.TeacherInfoResp{}
+	ret := manager.TeacherInfoResp{}
 
 	teacherID := o.Ctx.Input.Param(":teacherID")
 	if teacherID == "" {
@@ -106,7 +108,7 @@ func (o *TeacherController) Get() {
 		goto Out
 	}
 
-	ret, err = models.Tm.GetTeacherInfo(id)
+	ret, err = manager.Tm.GetTeacherInfo(id)
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out
@@ -126,7 +128,7 @@ Out:
 // @router /filter [post]
 func (o *TeacherController) Filter() {
 	resp := &BaseResponse{}
-	request := models.TeacherFilter{}
+	request := manager.TeacherFilter{}
 	err := json.Unmarshal(o.Ctx.Input.RequestBody, &request)
 	if err != nil {
 		resp.Msg = msgInvalidJSON
@@ -140,7 +142,7 @@ func (o *TeacherController) Filter() {
 		goto Out
 	}
 
-	resp.Data = models.Tm.Filter(&request)
+	resp.Data = manager.Tm.Filter(request)
 
 Out:
 	o.Data["json"] = resp
@@ -152,7 +154,7 @@ Out:
 // @Success 200 {object} models.TeacherListResp
 // @router /list [get]
 func (o *TeacherController) GetAll() {
-	o.Data["json"] = &BaseResponse{Msg: msgSuccess, Data: models.Tm.GetAll()}
+	o.Data["json"] = &BaseResponse{Msg: msgSuccess, Data: manager.Tm.GetAll()}
 	o.ServeJSON()
 }
 
@@ -188,7 +190,7 @@ func (tc *TeacherController) Delete() {
 		goto Out
 	}
 
-	ret.FailedList, err = models.Tm.DelTeacher(request.IDList)
+	ret.FailedList, err = manager.Tm.DelTeacher(request.IDList)
 	if err != nil {
 		logs.Debug("[TeacherController::Delete] failed", "err", err)
 		resp.Msg = err.Error()

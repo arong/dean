@@ -8,6 +8,8 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/arong/dean/manager"
+
 	"github.com/arong/dean/base"
 	"github.com/arong/dean/controllers"
 	"github.com/arong/dean/models"
@@ -75,7 +77,7 @@ var filterUser = func(ctx *context.Context) {
 	{
 		path := ctx.Request.URL.Path
 		if path != "/api/v1/auth/login" {
-			loginInfo, ok := models.Ac.VerifyToken(request.Token)
+			loginInfo, ok := manager.Ac.VerifyToken(request.Token)
 			if !ok {
 				msg = "invalid token"
 				goto Out
@@ -126,7 +128,7 @@ func main() {
 	logs.SetLogger(logs.AdapterFile, `{"filename":"./log/dean.log","level":7,"maxlines":0,"maxsize":0,"daily":true,"maxdays":10}`)
 
 	// init modules
-	models.Init(&conf)
+	manager.Init(&conf)
 
 	// start local storage
 	opts := badger.DefaultOptions
@@ -142,9 +144,9 @@ func main() {
 	// register signal handler
 	go signalHandler(db)
 
-	models.Ac.SetStore(db)
+	manager.Ac.SetStore(db)
 
-	models.Ac.LoadToken()
+	manager.Ac.LoadToken()
 
 	logs.Info("server start...")
 	if beego.BConfig.RunMode == "dev" {

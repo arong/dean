@@ -3,6 +3,8 @@ package controllers
 import (
 	"encoding/json"
 
+	"github.com/arong/dean/manager"
+
 	"github.com/arong/dean/base"
 	"github.com/arong/dean/models"
 	"github.com/astaxie/beego"
@@ -37,7 +39,7 @@ func (u *StudentScoreController) Add() {
 		goto Out
 	}
 
-	err = models.SSM.AddRecord(request)
+	err = manager.SSM.AddRecord(request)
 	if err != nil {
 		logs.Debug("[StudentScoreController::Add] AddRecord failed", "err", err)
 		resp.Code = base.ErrInternal
@@ -58,7 +60,7 @@ Out:
 func (u *StudentScoreController) Filter() {
 	request := models.StudentFilter{}
 	resp := base.BaseResponse{}
-	ret := &base.CommList{}
+	ret := base.CommList{}
 
 	err := json.Unmarshal(u.Ctx.Input.RequestBody, &request)
 	if err != nil {
@@ -75,7 +77,7 @@ func (u *StudentScoreController) Filter() {
 		goto Out
 	}
 
-	ret = models.Um.GetAllUsers(&request)
+	ret = manager.Um.GetAllUsers(request)
 	resp.Msg = msgSuccess
 	resp.Data = ret
 Out:

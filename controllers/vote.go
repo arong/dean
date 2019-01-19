@@ -3,6 +3,8 @@ package controllers
 import (
 	"encoding/json"
 
+	"github.com/arong/dean/manager"
+
 	"github.com/arong/dean/base"
 	"github.com/arong/dean/models"
 	"github.com/astaxie/beego/logs"
@@ -23,12 +25,12 @@ type VoteController struct {
 // @router /survey [post]
 func (v *VoteController) GetQuestionnaire() {
 	resp := BaseResponse{Code: -1}
-	req := models.GenRequest{}
+	req := manager.GenRequest{}
 	ret := models.SurveyPages{}
 	var err error
 
 	private := v.Ctx.Input.GetData(base.Private)
-	l, ok := private.(models.LoginInfo)
+	l, ok := private.(manager.LoginInfo)
 	if !ok {
 		logs.Warn("[VoteController::GetQuestionnaire] bug found")
 		resp.Code = base.ErrInternal
@@ -56,7 +58,7 @@ func (v *VoteController) GetQuestionnaire() {
 
 	req.StudentID = l.ID
 
-	ret, err = models.QuestionnaireManager.Generate(req)
+	ret, err = manager.QuestionnaireManager.Generate(req)
 	if err != nil {
 		logs.Info("[VoteController::GetQuestionnaire] Generate failed", "err", err)
 		resp.Code = base.ErrInternal

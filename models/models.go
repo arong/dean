@@ -2,11 +2,7 @@ package models
 
 import (
 	"sort"
-	"strings"
 	"time"
-	"unicode/utf8"
-
-	"github.com/bearbin/go-age"
 
 	"github.com/astaxie/beego"
 
@@ -54,6 +50,21 @@ func (il IntList) Page(page base.CommPage) IntList {
 	start, end := page.GetRange()
 	size := len(il)
 	ret := IntList{}
+	if start >= size {
+		return ret
+	} else if end > size {
+		return il[start:]
+	} else {
+		return il[start:end]
+	}
+}
+
+type Int64List []int64
+
+func (il Int64List) Page(page base.CommPage) Int64List {
+	start, end := page.GetRange()
+	size := len(il)
+	ret := Int64List{}
 	if start >= size {
 		return ret
 	} else if end > size {
@@ -425,11 +436,12 @@ func (q QuestionInfo) Check() error {
 		return err
 	}
 
-	if len(q.Scope) > 0 {
-		if !Sm.CheckSubjectList(q.Scope) {
-			return errors.New("invalid scope")
-		}
-	}
+	// todo: fixup
+	//if len(q.Scope) > 0 {
+	//	if !Sm.CheckSubjectList(q.Scope) {
+	//		return errors.New("invalid scope")
+	//	}
+	//}
 	return err
 }
 
@@ -601,11 +613,11 @@ func (al AnswerList) Check() error {
 	tmp := make(map[int]bool)
 	for _, v := range al {
 		if v.QuestionID == 0 {
-			return errNotExist
+			return errors.New("invalid id")
 		}
 
 		if _, ok := tmp[v.QuestionID]; ok {
-			return errExist
+			return errors.New("not exist")
 		} else {
 			tmp[v.QuestionID] = true
 		}
@@ -627,7 +639,7 @@ type QuestionnaireSubmit struct {
 
 func (q QuestionnaireSubmit) Check() error {
 	if q.QuestionnaireID == 0 {
-		return errNotExist
+		return errors.New("not exist")
 	}
 	return nil
 }
@@ -673,9 +685,10 @@ func (ss StudentScore) Check() error {
 	if ss.StudentID == 0 {
 		return errors.New("invalid student info")
 	} else {
-		if !Um.IsExist(ss.StudentID) {
-			return errors.New("student not exist")
-		}
+		// todo: fix up
+		//if !Um.IsExist(ss.StudentID) {
+		//	return errors.New("student not exist")
+		//}
 	}
 
 	if ss.TermID == 0 || ss.Exam == 0 {
@@ -687,9 +700,10 @@ func (ss StudentScore) Check() error {
 			return errors.New("invalid subject id")
 		}
 		// check subject
-		if !Sm.IsExist(v.SubjectID) {
-			return errNotExist
-		}
+		// todo: fixup
+		//if !Sm.IsExist(v.SubjectID) {
+		//	return errNotExist
+		//}
 
 		if v.Score < base.MinScore || v.Score > base.MaxScore {
 			return errors.New("invalid score")
@@ -720,208 +734,6 @@ type ScoreFilter struct {
 	TermID      int   // 学期
 }
 
-type StudentInfo struct {
-	profile
-	ClassID    int    `json:"class_id"`
-	StudentID  int64  `json:"student_id"`
-	RegisterID string `json:"register_id"` // 学号
-}
-type studentList []*StudentInfo
-
-func (cl studentList) Len() int {
-	return len(cl)
-}
-
-func (cl studentList) Swap(i, j int) {
-	cl[i], cl[j] = cl[j], cl[i]
-}
-
-func (cl studentList) Less(i, j int) bool {
-	return cl[i].StudentID < cl[j].StudentID
-}
-
-type profile struct {
-	Age      int    `json:"age"`
-	Gender   int    `json:"gender"`
-	RealName string `json:"real_name"`
-	Mobile   string `json:"mobile"`
-	Address  string `json:"address"`
-	Birthday string `json:"birthday"`
-}
-
-// SubjectInfo: subject meta info
-type SubjectInfo struct {
-	Status int    `json:"status"`
-	ID     int    `json:"id"`
-	Name   string `json:"name"`
-	Key    string `json:"key"`
-}
-
-func (s SubjectInfo) Equal(r SubjectInfo) bool {
-	return s.Name == r.Name &&
-		s.Key == r.Key
-}
-
-type SubjectList []SubjectInfo
-
-func (tl SubjectList) Len() int {
-	return len(tl)
-}
-
-func (tl SubjectList) Swap(i, j int) {
-	tl[i], tl[j] = tl[j], tl[i]
-}
-
-func (tl SubjectList) Less(i, j int) bool {
-	return tl[i].ID < tl[j].ID
-}
-
-type Teacher struct {
-	Status int `json:"-"`
-	TeacherMeta
-}
-
-func (t Teacher) Check() error {
-	if t.Gender < eGenderMale || t.Gender > eGenderUnknown {
-		return ErrGender
-	}
-
-	t.Name = strings.TrimSpace(t.Name)
-	if t.Name == "" {
-		return ErrName
-	}
-
-	if utf8.RuneCountInString(t.Name) > 16 {
-		return ErrName
-	}
-
-	if len(t.Mobile) > 11 {
-		return errMobile
-	}
-
-	if len(t.Birthday) > 10 {
-		return ErrBirthday
-	}
-
-	if t.Birthday != "" {
-		birth, err := time.Parse("2006-01-02", t.Birthday)
-		if err != nil {
-			return ErrBirthday
-		}
-		t.Age = age.Age(birth)
-	}
-
-	if utf8.RuneCountInString(t.Address) > 64 {
-		return errAddress
-	}
-
-	if t.SubjectID != 0 {
-		if !Sm.IsExist(t.SubjectID) {
-			return errSubject
-		}
-	}
-	return nil
-}
-
-type TeacherList []Teacher
-
-func (tl TeacherList) Len() int {
-	return len(tl)
-}
-
-func (tl TeacherList) Swap(i, j int) {
-	tl[i], tl[j] = tl[j], tl[i]
-}
-
-func (tl TeacherList) Less(i, j int) bool {
-	return tl[i].TeacherID < tl[j].TeacherID
-}
-
-func (tl TeacherList) Page(page, size int) TeacherList {
-	start := (page - 1) * size
-	end := page * size
-	total := len(tl)
-
-	if start >= total {
-		return TeacherList{}
-	} else if end > total {
-		return tl[start:]
-	} else {
-		return tl[start:end]
-	}
-}
-
-func (tl TeacherList) Filter(f TeacherFilter) TeacherList {
-	list := TeacherList{}
-	for _, v := range tl {
-		if v.Status != base.StatusValid {
-			continue
-		}
-
-		if f.Gender != 0 && f.Gender != v.Gender {
-			continue
-		}
-
-		if f.Name != "" && f.Name != v.Name {
-			continue
-		}
-		list = append(list, v)
-	}
-	return list
-}
-
-type TeacherFilter struct {
-	base.CommPage
-	Gender int    `json:"gender"`
-	Age    int    `json:"age"`
-	Name   string `json:"name"`
-	Mobile string `json:"mobile"`
-}
-
-type TeacherMeta struct {
-	TeacherID int64  `json:"teacher_id"`
-	SubjectID int    `json:"subject_id"`
-	Gender    int    `json:"gender"`
-	Age       int    `json:"age"`
-	Name      string `json:"name,omitempty"`
-	Mobile    string `json:"mobile,omitempty"`
-	Birthday  string `json:"birthday,omitempty"`
-	Address   string `json:"address,omitempty"`
-	Subject   string `json:"subject,omitempty"`
-}
-
-func (t TeacherMeta) Equal(r TeacherMeta) bool {
-	return t.SubjectID == r.SubjectID &&
-		t.Gender == r.Gender &&
-		t.Name == r.Name &&
-		t.Mobile == r.Mobile &&
-		t.Birthday == r.Birthday &&
-		t.Address == r.Address &&
-		t.Subject == r.Subject
-}
-
-type TeacherInfoResp struct {
-	TeacherMeta
-	SubjectID int `json:"subject_id"`
-}
-
-type simpleTeacher struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
-}
-
-type simpleTeacherList []simpleTeacher
-
-func (s simpleTeacherList) Len() int {
-	return len(s)
-}
-func (s simpleTeacherList) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
-}
-func (s simpleTeacherList) Less(i, j int) bool {
-	return s[i].ID < s[j].ID
-}
-
 type VoteMeta struct {
 	TeacherID int64 // 教师ID
 	Score     int   // 评分
@@ -937,20 +749,20 @@ type TeacherScore struct {
 	Average float64
 	Total   int
 	Count   int
-	Meta    map[int]sourceList // option and its count
+	Meta    map[int]SourceList // option and its count
 	Remark  []string           // remark for teacher
 }
 
-type sourceMeta Filter
-type sourceList []sourceMeta
+type SourceMeta Filter
+type SourceList []SourceMeta
 
-func (sm sourceList) Len() int {
+func (sm SourceList) Len() int {
 	return len(sm)
 }
-func (sm sourceList) Swap(i, j int) {
+func (sm SourceList) Swap(i, j int) {
 	sm[i], sm[j] = sm[j], sm[i]
 }
-func (sm sourceList) Less(i, j int) bool {
+func (sm SourceList) Less(i, j int) bool {
 	l := sm[i]
 	r := sm[j]
 	if l.Grade < r.Grade {

@@ -2,10 +2,12 @@ package controllers
 
 import (
 	"encoding/json"
+	"strconv"
+
 	"github.com/arong/dean/base"
+	"github.com/arong/dean/manager"
 	"github.com/arong/dean/models"
 	"github.com/astaxie/beego/logs"
-	"strconv"
 
 	"github.com/astaxie/beego"
 )
@@ -33,7 +35,7 @@ func (u *StudentController) Add() {
 		goto Out
 	}
 
-	id, err = models.Um.AddUser(&user)
+	id, err = manager.Um.AddUser(user)
 	if err != nil {
 		resp.Msg = err.Error()
 		logs.Info("[UserController::Post] AddUser failed")
@@ -57,7 +59,7 @@ Out:
 func (u *StudentController) Filter() {
 	request := models.StudentFilter{}
 	resp := base.BaseResponse{}
-	ret := &base.CommList{}
+	ret := base.CommList{}
 
 	err := json.Unmarshal(u.Ctx.Input.RequestBody, &request)
 	if err != nil {
@@ -74,7 +76,7 @@ func (u *StudentController) Filter() {
 		goto Out
 	}
 
-	ret = models.Um.GetAllUsers(&request)
+	ret = manager.Um.GetAllUsers(request)
 	resp.Msg = msgSuccess
 	resp.Data = ret
 Out:
@@ -97,7 +99,7 @@ func (u *StudentController) GetInfo() {
 		goto Out
 	}
 
-	resp.Data, err = models.Um.GetUser(uid)
+	resp.Data, err = manager.Um.GetUser(uid)
 	if err != nil {
 		resp.Msg = err.Error()
 		logs.Debug("getUserID failed")
@@ -138,7 +140,7 @@ func (u *StudentController) Update() {
 		goto Out
 	}
 
-	err = models.Um.ModUser(&user)
+	err = manager.Um.ModUser(&user)
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out
@@ -164,6 +166,7 @@ type delStuReq struct {
 func (u *StudentController) Delete() {
 	resp := BaseResponse{Code: -1}
 	request := delStuReq{}
+	failed := []int64{}
 
 	err := json.Unmarshal(u.Ctx.Input.RequestBody, &request)
 	if err != nil {
@@ -172,7 +175,7 @@ func (u *StudentController) Delete() {
 		goto Out
 	}
 
-	err = models.Um.DelUser(request.IDList)
+	failed, err = manager.Um.DelUser(request.IDList)
 	if err != nil {
 		logs.Debug("[StudentController::Delete] failed", err)
 		resp.Msg = err.Error()
@@ -180,6 +183,10 @@ func (u *StudentController) Delete() {
 	}
 	resp.Code = 0
 	resp.Msg = msgSuccess
+	if len(failed) > 0 {
+		resp.Data = failed
+	}
+
 Out:
 	u.Data["json"] = resp
 	u.ServeJSON()

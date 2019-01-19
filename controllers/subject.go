@@ -3,6 +3,8 @@ package controllers
 import (
 	"encoding/json"
 
+	"github.com/arong/dean/manager"
+
 	"github.com/arong/dean/base"
 	"github.com/arong/dean/models"
 	"github.com/astaxie/beego"
@@ -37,7 +39,7 @@ func (s *SubjectController) Add() {
 		goto Out
 	}
 
-	request.ID, err = models.Sm.Add(request)
+	request.ID, err = manager.Sm.Add(request)
 	if err != nil {
 		logs.Debug("[ClassController::Add] add failed", "err", err)
 		resp.Code = base.ErrInvalidParameter
@@ -82,7 +84,7 @@ func (s *SubjectController) Update() {
 		goto Out
 	}
 
-	err = models.Sm.Update(request)
+	err = manager.Sm.Update(request)
 	if err != nil {
 		logs.Debug("[ClassController::Update] add failed", "err", err)
 		resp.Code = base.ErrInvalidParameter
@@ -112,7 +114,7 @@ func (s *SubjectController) Delete() {
 		goto Out
 	}
 
-	failedList, err = models.Sm.Delete(request.IDList)
+	failedList, err = manager.Sm.Delete(request.IDList)
 	if err != nil {
 		logs.Debug("[SubjectController::Delete] invalid class id")
 		resp.Code = base.ErrInternal
@@ -136,7 +138,7 @@ func (s *SubjectController) GetAll() {
 	s.Data["json"] = BaseResponse{
 		Code: 0,
 		Msg:  msgSuccess,
-		Data: models.Sm.GetAll(),
+		Data: manager.Sm.GetAll(),
 	}
 	s.ServeJSON()
 }

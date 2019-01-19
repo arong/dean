@@ -1,4 +1,4 @@
-package models
+package manager
 
 import (
 	"database/sql"
@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/arong/dean/models"
 
 	"github.com/arong/dean/base"
 	"github.com/bearbin/go-age"
@@ -26,7 +28,7 @@ type mysqlAgent struct {
 	db *sql.DB
 }
 
-func (ma *mysqlAgent) Init(conf *DBConfig) {
+func (ma *mysqlAgent) Init(conf *models.DBConfig) {
 	var err error
 	// example: "root:123456@tcp(localhost:3306)/lflss?charset=utf8"
 	path := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8", conf.User, conf.Password, conf.Host, conf.Port, conf.DBName)
@@ -41,8 +43,8 @@ func (ma *mysqlAgent) LoadAllData() error {
 	logs.Info("start loading data")
 
 	// load all subject info
-	subjectMap := make(map[int]SubjectInfo)
-	subjectList := SubjectList{}
+	subjectMap := make(map[int]models.SubjectInfo)
+	subjectList := models.SubjectList{}
 	{
 		rows, err := ma.db.Query("select iSubjectID,vSubjectKey, vSubjectName from tbSubject where eStatus =1;")
 		if err != nil {
@@ -52,7 +54,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 		defer rows.Close()
 
 		for rows.Next() {
-			tmp := SubjectInfo{}
+			tmp := models.SubjectInfo{}
 			err = rows.Scan(&tmp.ID, &tmp.Key, &tmp.Name)
 			if err != nil {
 				logs.Error("scan failed", err)
@@ -65,8 +67,8 @@ func (ma *mysqlAgent) LoadAllData() error {
 	Sm.Init(subjectList)
 
 	// load all teachers
-	teacherMap := make(map[int64]*Teacher)
-	teacherList := TeacherList{}
+	teacherMap := make(map[int64]*models.Teacher)
+	teacherList := models.TeacherList{}
 	{
 		rows, err := ma.db.Query("SELECT iTeacherID,eGender,vName,vMobile,iSubjectID,dtBirthday,vAddress,eStatus FROM tbTeacher WHERE eStatus = 1;")
 		if err != nil {
@@ -76,7 +78,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 		defer rows.Close()
 
 		for rows.Next() {
-			tmp := &Teacher{}
+			tmp := &models.Teacher{}
 			err = rows.Scan(&tmp.TeacherID, &tmp.Gender, &tmp.Name, &tmp.Mobile, &tmp.SubjectID, &tmp.Birthday, &tmp.Address, &tmp.Status)
 			if err != nil {
 				logs.Warn("[LoadAllData] data error at tbTeacher")
@@ -98,10 +100,11 @@ func (ma *mysqlAgent) LoadAllData() error {
 	}
 
 	// init teacher manager
-	Tm.Init(teacherList)
+	// todo: fix up this
+	//Tm.Init(teacherList)
 
 	// load class
-	classMap := make(map[int]*Class)
+	classMap := make(map[int]*models.Class)
 	{
 		rows, err := ma.db.Query("SELECT iClassID,iGrade,iIndex,vName,iMasterID,iStartYear,eTerm FROM tbClass WHERE eStatus = 1;")
 		if err != nil {
@@ -111,7 +114,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 		defer rows.Close()
 
 		for rows.Next() {
-			tmp := &Class{}
+			tmp := &models.Class{}
 			err = rows.Scan(&tmp.ID, &tmp.Grade, &tmp.Index, &tmp.Name, &tmp.MasterID, &tmp.Year, &tmp.Term)
 			if err != nil {
 				continue
@@ -132,7 +135,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 
 		for rows.Next() {
 			var classID int
-			tmp := InstructorInfo{}
+			tmp := models.InstructorInfo{}
 			err = rows.Scan(&classID, &tmp.TeacherID, &tmp.SubjectID)
 			if err != nil {
 				continue
@@ -157,7 +160,8 @@ func (ma *mysqlAgent) LoadAllData() error {
 	Cm.Init(classMap)
 
 	// load students
-	userMap := make(map[int64]*StudentInfo)
+	userMap := make(map[int64]*models.StudentInfo)
+	studentList := models.StudentList{}
 	{
 		rows, err := ma.db.Query("SELECT iUserID,vName,vRegistNumber,eGender,iClassID FROM tbStudent WHERE eStatus = 1;")
 		if err != nil {
@@ -167,16 +171,17 @@ func (ma *mysqlAgent) LoadAllData() error {
 		defer rows.Close()
 
 		for rows.Next() {
-			u := StudentInfo{}
-			err = rows.Scan(&u.StudentID, &u.RealName, &u.RegisterID, &u.Gender, &u.ClassID)
+			u := models.StudentInfo{}
+			err = rows.Scan(&u.StudentID, &u.Name, &u.RegisterID, &u.Gender, &u.ClassID)
 			if err != nil {
 				continue
 			}
 			userMap[u.StudentID] = &u
+			studentList = append(studentList, u)
 		}
 	}
 	// init student manager
-	Um.Init(userMap)
+	Um.Init(studentList)
 
 	// init access control
 	loginMap := make(map[LoginKey]*LoginInfo)
@@ -201,7 +206,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 	Ac.loginMap = loginMap
 
 	// init questionnaire
-	questionMap := make(map[int]*QuestionnaireInfo)
+	questionMap := make(map[int]*models.QuestionnaireInfo)
 	{
 		rows, err := ma.db.Query("SELECT iQuestionnaireID,vTitle,dtStartTime,dtStopTime,eDraftStatus,vEditorName FROM tbQuestionnaire;")
 		if err != nil {
@@ -211,7 +216,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 		defer rows.Close()
 
 		for rows.Next() {
-			tmp := QuestionnaireInfo{}
+			tmp := models.QuestionnaireInfo{}
 			err = rows.Scan(&tmp.QuestionnaireID, &tmp.Title, &tmp.StartTime, &tmp.StopTime, &tmp.Status, &tmp.Editor)
 			if err != nil {
 				logs.Error("scan tbQuestionnaire failed", err)
@@ -237,7 +242,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 		defer rows.Close()
 
 		for rows.Next() {
-			tmp := QuestionInfo{}
+			tmp := models.QuestionInfo{}
 			buff := ""
 			require := 0
 			err = rows.Scan(&tmp.QuestionID, &tmp.QuestionnaireID, &tmp.Index, &tmp.Type, &require, &tmp.Question, &buff)
@@ -281,7 +286,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 }
 
 // InsertTeacher insert teacher info
-func (ma *mysqlAgent) InsertTeacher(t Teacher) (int64, error) {
+func (ma *mysqlAgent) SaveTeacher(t models.Teacher) (int64, error) {
 	if t.Birthday == "" {
 		t.Birthday = defaultBirthday
 	}
@@ -300,7 +305,7 @@ func (ma *mysqlAgent) InsertTeacher(t Teacher) (int64, error) {
 }
 
 // UpdateTeacher update teacher info
-func (ma *mysqlAgent) UpdateTeacher(t Teacher) error {
+func (ma *mysqlAgent) UpdateTeacher(t models.Teacher) error {
 	stmtIns, err := ma.db.Prepare("UPDATE tbTeacher SET eGender=?,vName=?,vMobile=?,dtBirthday=?,iSubjectID=?, vAddress=? WHERE iTeacherID=?;")
 	if err != nil {
 		return err
@@ -336,7 +341,7 @@ func (ma *mysqlAgent) DeleteTeacher(id []int64) error {
 }
 
 // InsertClass insert class info
-func (ma *mysqlAgent) InsertClass(t *Class) error {
+func (ma *mysqlAgent) InsertClass(t *models.Class) error {
 	// Prepare statement for inserting data
 	stmtIns, err := ma.db.Prepare("INSERT INTO `tbClass` (`iGrade`, `iIndex`, `vName`,`iMasterID`,`iStartYear`,`eTerm`) VALUES (?,?,?,?,?,?);")
 	if err != nil {
@@ -371,7 +376,7 @@ func (ma *mysqlAgent) InsertClass(t *Class) error {
 }
 
 // UpdateClass update class info
-func (ma *mysqlAgent) UpdateClass(t *Class) error {
+func (ma *mysqlAgent) UpdateClass(t *models.Class) error {
 	// insert into tbClass
 	{
 		stmtIns, err := ma.db.Prepare("UPDATE tbClass SET vName=?,iMasterID=?,iStartYear=?,eTerm=? WHERE iClassID=?;")
@@ -453,14 +458,14 @@ func (ma *mysqlAgent) DeleteClass(id int) error {
 }
 
 // InsertStudent insert teacher info
-func (ma *mysqlAgent) InsertStudent(u *StudentInfo) (int64, error) {
+func (ma *mysqlAgent) SaveStudent(u models.StudentInfo) (int64, error) {
 	stmt, err := ma.db.Prepare("INSERT INTO `tbStudent`(`vRegistNumber`, `vName`, `eGender`,`iClassID`,`vAddress`,`dtBirthday`) VALUES (?,?,?,?,?,?)")
 	if err != nil {
 		logs.Error("[mysqlAgent::InsertUser] failed", "err")
 		return 0, err
 	}
 
-	rs, err := stmt.Exec(u.RegisterID, u.RealName, u.Gender, u.ClassID, u.Address, u.Birthday)
+	rs, err := stmt.Exec(u.RegisterID, u.Name, u.Gender, u.ClassID, u.Address, u.Birthday)
 	if err != nil {
 		logs.Warn("[mysqlAgent::InsertUser]failed", err)
 		return 0, err
@@ -475,14 +480,14 @@ func (ma *mysqlAgent) InsertStudent(u *StudentInfo) (int64, error) {
 }
 
 // UpdateStudent update student info
-func (ma *mysqlAgent) UpdateStudent(u *StudentInfo) error {
+func (ma *mysqlAgent) UpdateStudent(u models.StudentInfo) error {
 	stmtIns, err := ma.db.Prepare("UPDATE tbStudent SET vRegistNumber=?,vName=?,eGender=?,iClassID=?,vAddress=?,dtBirthday=? WHERE iUserID=?;")
 	if err != nil {
 		return err
 	}
 	defer stmtIns.Close()
 
-	_, err = stmtIns.Exec(u.RegisterID, u.RealName, u.Gender, u.ClassID, u.Address, u.Birthday, u.StudentID)
+	_, err = stmtIns.Exec(u.RegisterID, u.Name, u.Gender, u.ClassID, u.Address, u.Birthday, u.StudentID)
 	if err != nil {
 		logs.Warn("execute sql failed", "err", err)
 		return err
@@ -491,17 +496,19 @@ func (ma *mysqlAgent) UpdateStudent(u *StudentInfo) error {
 }
 
 // DeleteUser delete student info
-func (ma *mysqlAgent) DeleteStudent(uid int64) error {
+func (ma *mysqlAgent) DeleteStudent(ids []int64) error {
 	stmtIns, err := ma.db.Prepare("UPDATE tbStudent SET eStatus=? WHERE iUserID=?;")
 	if err != nil {
 		return err
 	}
 	defer stmtIns.Close()
 
-	_, err = stmtIns.Exec(base.StatusDeleted, uid)
-	if err != nil {
-		logs.Warn("execute sql failed", "err", err)
-		return err
+	for _, v := range ids {
+		_, err = stmtIns.Exec(base.StatusDeleted, v)
+		if err != nil {
+			logs.Warn("execute sql failed", "err", err)
+			return err
+		}
 	}
 	return nil
 }
@@ -561,7 +568,7 @@ func (ma *mysqlAgent) ResetAllPassword(password string) error {
 }
 
 // AddSubject add subject info
-func (ma *mysqlAgent) SaveSubject(s SubjectInfo) (int, error) {
+func (ma *mysqlAgent) SaveSubject(s models.SubjectInfo) (int, error) {
 	stmtIns, err := ma.db.Prepare("INSERT INTO tbSubject (`vSubjectKey`, `vSubjectName`) VALUES (?,?);")
 	if err != nil {
 		return 0, err
@@ -583,7 +590,7 @@ func (ma *mysqlAgent) SaveSubject(s SubjectInfo) (int, error) {
 }
 
 // UpdateSubject update subject info
-func (ma *mysqlAgent) UpdateSubject(s SubjectInfo) error {
+func (ma *mysqlAgent) UpdateSubject(s models.SubjectInfo) error {
 	stmtIns, err := ma.db.Prepare("UPDATE tbSubject SET `vSubjectKey`=? WHERE `iSubjectID`=?;")
 	if err != nil {
 		return err
@@ -639,7 +646,7 @@ func (ma *mysqlAgent) DeleteSubject(id int) error {
 // Questionnaire zone
 
 // AddQuestionnaire add new questionnaire to current system
-func (ma *mysqlAgent) AddQuestionnaire(q *QuestionnaireInfo) error {
+func (ma *mysqlAgent) AddQuestionnaire(q *models.QuestionnaireInfo) error {
 
 	stmtIns, err := ma.db.Prepare("INSERT INTO tbQuestionnaire (`vTitle`,`dtStartTime`,`dtStopTime`,`eDraftStatus`,`vEditorName`) VALUES (?,?,?,?,?);")
 	if err != nil {
@@ -663,7 +670,7 @@ func (ma *mysqlAgent) AddQuestionnaire(q *QuestionnaireInfo) error {
 }
 
 // UpdateQuestionnaire modify questionnaire info, not its
-func (ma *mysqlAgent) UpdateQuestionnaire(q *QuestionnaireInfo) error {
+func (ma *mysqlAgent) UpdateQuestionnaire(q *models.QuestionnaireInfo) error {
 	stmtIns, err := ma.db.Prepare("UPDATE tbQuestionnaire SET `vTitle`=?,`dtStartTime`=?,`dtStopTime`=?,`vEditorName`=? WHERE iQuestionnaireID=? AND `eDraftStatus`=1")
 	if err != nil {
 		return err
@@ -688,7 +695,7 @@ func (ma *mysqlAgent) UpdateQuestionnaire(q *QuestionnaireInfo) error {
 	return nil
 }
 
-func (ma *mysqlAgent) ExpireQuestionnaire(q *QuestionnaireInfo) error {
+func (ma *mysqlAgent) ExpireQuestionnaire(q *models.QuestionnaireInfo) error {
 	stmtIns, err := ma.db.Prepare("UPDATE tbQuestionnaire (`vTitle`,`dtStartTime`,`dtStopTime`,`eDraftStatus`) VALUES (?,?,?,?);")
 	if err != nil {
 		return err
@@ -717,7 +724,7 @@ func (ma *mysqlAgent) DeleteQuestionnaire(id int) error {
 	}
 	defer stmtIns.Close()
 
-	resp, err := stmtIns.Exec(id, QStatusDraft)
+	resp, err := stmtIns.Exec(id, models.QStatusDraft)
 	if err != nil {
 		logs.Warn("[DeleteQuestionnaire] execute sql failed", "err", err)
 		return err
@@ -736,7 +743,7 @@ func (ma *mysqlAgent) DeleteQuestionnaire(id int) error {
 	return nil
 }
 
-func (ma *mysqlAgent) AddQuestion(questionnaireID int, info *QuestionInfo) (int, error) {
+func (ma *mysqlAgent) AddQuestion(questionnaireID int, info *models.QuestionInfo) (int, error) {
 	buff, err := json.Marshal(info.Options)
 	if err != nil {
 		return 0, err
@@ -771,7 +778,7 @@ func (ma *mysqlAgent) AddQuestion(questionnaireID int, info *QuestionInfo) (int,
 	return int(id), nil
 }
 
-func (ma *mysqlAgent) UpdateQuestion(info *QuestionInfo) (int, error) {
+func (ma *mysqlAgent) UpdateQuestion(info *models.QuestionInfo) (int, error) {
 	buff, err := json.Marshal(info.Options)
 	if err != nil {
 		return 0, err

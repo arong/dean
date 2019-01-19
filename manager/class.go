@@ -1,9 +1,11 @@
-package models
+package manager
 
 import (
 	"errors"
 	"sort"
 	"sync"
+
+	"github.com/arong/dean/models"
 
 	"github.com/arong/dean/base"
 	"github.com/astaxie/beego/logs"
@@ -36,33 +38,25 @@ var (
 )
 
 type classManager struct {
-	idMap map[int]*Class
+	idMap map[int]*models.Class
 	mutex sync.Mutex
 }
 
-//func (cm *classManager) Lock() {
-//	cm.mutex.Lock()
-//}
-//
-//func (cm *classManager) UnLock() {
-//	cm.mutex.Unlock()
-//}
-
 // Init maintain the relation between class and teacher
-func (cm *classManager) Init(data map[int]*Class) {
+func (cm *classManager) Init(data map[int]*models.Class) {
 	if cm == nil {
 		return
 	}
 
 	if data == nil {
-		cm.idMap = make(map[int]*Class)
+		cm.idMap = make(map[int]*models.Class)
 	} else {
 		cm.idMap = data
 	}
 }
 
 // AddClass add new class into system
-func (cm *classManager) AddClass(c *Class) (int, error) {
+func (cm *classManager) AddClass(c *models.Class) (int, error) {
 	var ret int
 
 	cm.mutex.Lock()
@@ -91,7 +85,7 @@ func (cm *classManager) AddClass(c *Class) (int, error) {
 }
 
 //ModifyClass modify class
-func (cm *classManager) ModifyClass(r *Class) error {
+func (cm *classManager) ModifyClass(r *models.Class) error {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
@@ -100,11 +94,12 @@ func (cm *classManager) ModifyClass(r *Class) error {
 		return ErrClassNotExist
 	}
 
-	err := Tm.CheckInstructorList(r.TeacherList)
-	if err != nil {
-		logs.Warn("[ModifyClass] CheckInstructorList error", "err", err)
-		return err
-	}
+	// todo: fix up this
+	//err := Tm.CheckInstructorList(r.TeacherList)
+	//if err != nil {
+	//	logs.Warn("[ModifyClass] CheckInstructorList error", "err", err)
+	//	return err
+	//}
 
 	if curr.Equal(*r) {
 		logs.Debug("[ModifyClass] need do nothing")
@@ -126,21 +121,21 @@ func (cm *classManager) ModifyClass(r *Class) error {
 	// diff two list
 	curr.TeacherList, curr.AddList, curr.RemoveList = curr.TeacherList.Diff(r.TeacherList)
 	logs.Debug("[ModifyClass]", "addList", curr.AddList, "delList", curr.RemoveList, "all", curr.TeacherList)
-	err = Ma.UpdateClass(curr)
+	err := Ma.UpdateClass(curr)
 	if err != nil {
 		logs.Warn("[ModifyClass] database error")
 		return err
 	}
-	curr.AddList = InstructorList{}
-	curr.RemoveList = InstructorList{}
+	curr.AddList = models.InstructorList{}
+	curr.RemoveList = models.InstructorList{}
 	return nil
 }
 
 //DelClass delete class
-func (cm *classManager) DelClass(list ClassIDList) (ClassIDList, error) {
+func (cm *classManager) DelClass(list models.ClassIDList) (models.ClassIDList, error) {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
-	failedList := ClassIDList{}
+	failedList := models.ClassIDList{}
 
 	for _, id := range list {
 		_, ok := cm.idMap[id]
@@ -163,7 +158,7 @@ func (cm *classManager) DelClass(list ClassIDList) (ClassIDList, error) {
 // Filter  get class list with condition
 func (cm *classManager) Filter() base.CommList {
 	resp := base.CommList{}
-	list := ClassList{}
+	list := models.ClassList{}
 	for _, v := range cm.idMap {
 		list = append(list, v)
 	}
@@ -174,18 +169,18 @@ func (cm *classManager) Filter() base.CommList {
 }
 
 // GetAll get all class list
-func (cm *classManager) GetAll() ItemList {
-	resp := ItemList{}
+func (cm *classManager) GetAll() models.ItemList {
+	resp := models.ItemList{}
 	for _, v := range cm.idMap {
-		resp = append(resp, Item{ID: v.ID, Name: v.Name})
+		resp = append(resp, models.Item{ID: v.ID, Name: v.Name})
 	}
 	sort.Sort(resp)
 	return resp
 }
 
 // GetInfo get class info
-func (cm *classManager) GetInfo(id int) (*Class, error) {
-	ret := &Class{}
+func (cm *classManager) GetInfo(id int) (*models.Class, error) {
+	ret := &models.Class{}
 
 	if cm == nil {
 		return ret, nil

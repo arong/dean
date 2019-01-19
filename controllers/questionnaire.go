@@ -3,8 +3,10 @@ package controllers
 import (
 	"encoding/json"
 
-	"github.com/arong/dean/base"
 	"github.com/arong/dean/models"
+
+	"github.com/arong/dean/base"
+	"github.com/arong/dean/manager"
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 )
@@ -16,8 +18,8 @@ type QuestionnaireController struct {
 
 // @Title CreateUser
 // @Description create users
-// @Param	body		body 	models.User	true		"body for user content"
-// @Success 200 {int} models.User.StudentID
+// @Param	body		body 	manager.User	true		"body for user content"
+// @Success 200 {int} manager.User.StudentID
 // @Failure 403 body is empty
 // @router /add [post]
 func (q *QuestionnaireController) Add() {
@@ -34,7 +36,7 @@ func (q *QuestionnaireController) Add() {
 
 	{
 		private := q.Ctx.Input.GetData(base.Private)
-		if l, ok := private.(models.LoginInfo); ok {
+		if l, ok := private.(manager.LoginInfo); ok {
 			questionnaire.Editor = l.LoginName
 		} else {
 			logs.Debug("[QuestionnaireController::Add] invalid user info", "private", private)
@@ -55,7 +57,7 @@ func (q *QuestionnaireController) Add() {
 		goto Out
 	}
 
-	id, err = models.QuestionnaireManager.Add(&questionnaire)
+	id, err = manager.QuestionnaireManager.Add(&questionnaire)
 	if err != nil {
 		resp.Msg = err.Error()
 		logs.Info("[QuestionnaireController::Add] AddUser failed", "err", err)
@@ -72,8 +74,8 @@ Out:
 
 // @Title Update
 // @Description create users
-// @Param	body		body 	models.User	true		"body for user content"
-// @Success 200 {int} models.User.StudentID
+// @Param	body		body 	manager.User	true		"body for user content"
+// @Success 200 {int} manager.User.StudentID
 // @Failure 403 body is empty
 // @router /update [post]
 func (q *QuestionnaireController) Update() {
@@ -102,7 +104,7 @@ func (q *QuestionnaireController) Update() {
 		goto Out
 	}
 
-	err = models.QuestionnaireManager.Update(&request)
+	err = manager.QuestionnaireManager.Update(&request)
 	if err != nil {
 		resp.Msg = err.Error()
 		logs.Info("[StudentController::Update] Update failed", "err", err)
@@ -118,8 +120,8 @@ Out:
 
 // @Title CreateUser
 // @Description create users
-// @Param	body		body 	models.User	true		"body for user content"
-// @Success 200 {int} models.User.StudentID
+// @Param	body		body 	manager.User	true		"body for user content"
+// @Success 200 {int} manager.User.StudentID
 // @Failure 403 body is empty
 // @router /delete [post]
 func (q *QuestionnaireController) Delete() {
@@ -140,7 +142,7 @@ func (q *QuestionnaireController) Delete() {
 		goto Out
 	}
 
-	err = models.QuestionnaireManager.Delete(request.ID)
+	err = manager.QuestionnaireManager.Delete(request.ID)
 	if err != nil {
 		logs.Info("[QuestionnaireController::Delete] Delete failed", "err", err)
 		resp.Code = base.ErrInternal
@@ -157,12 +159,12 @@ Out:
 
 // @Title Get
 // @Description find object which meet filter
-// @Success 200 {object} models.ScoreInfo
+// @Success 200 {object} manager.ScoreInfo
 // @Failure 403 :objectId is empty
 // @router /filter [post]
 func (q *QuestionnaireController) Filter() {
 	resp := BaseResponse{Code: -1}
-	ret, _ := models.QuestionnaireManager.Filter()
+	ret, _ := manager.QuestionnaireManager.Filter()
 
 	resp.Code = 0
 	resp.Msg = msgSuccess
@@ -173,7 +175,7 @@ func (q *QuestionnaireController) Filter() {
 
 // @Title Get
 // @Description find object which meet filter
-// @Success 200 {object} models.ScoreInfo
+// @Success 200 {object} manager.ScoreInfo
 // @Failure 403 :objectId is empty
 // @router /submit [post]
 func (q *QuestionnaireController) Submit() {
@@ -189,7 +191,7 @@ func (q *QuestionnaireController) Submit() {
 
 	{
 		p := q.Ctx.Input.GetData(base.Private)
-		if l, ok := p.(models.LoginInfo); ok {
+		if l, ok := p.(manager.LoginInfo); ok {
 			if l.UserType != base.AccountTypeStudent {
 				goto Out
 			}

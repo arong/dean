@@ -1,4 +1,6 @@
-package models
+package manager
+
+import "github.com/arong/dean/models"
 
 //SSM is global student score manager
 var SSM StudentScoreManager
@@ -7,16 +9,16 @@ type StudentScoreManager struct {
 	currentYear int // 当前学年
 	currentTerm int // 当前学期
 	currentExam int // 当前考试
-	score       map[int64]YearScoreList
+	score       map[int64]models.YearScoreList
 }
 
 // AddRecord: add new record
-func (ssm StudentScoreManager) AddRecord(r StudentScore) error {
+func (ssm StudentScoreManager) AddRecord(r models.StudentScore) error {
 	return nil
 }
 
-func (ssm StudentScoreManager) getStudentScore(studentID int64) (StudentScore, error) {
-	item := StudentScore{}
+func (ssm StudentScoreManager) getStudentScore(studentID int64) (models.StudentScore, error) {
+	item := models.StudentScore{}
 	score, ok := ssm.score[studentID]
 	if !ok {
 		return item, errNotExist
@@ -45,8 +47,8 @@ func (ssm StudentScoreManager) getStudentScore(studentID int64) (StudentScore, e
 	return item, nil
 }
 
-func (ssm StudentScoreManager) getClassScore(classID int) (StudentScoreList, error) {
-	ret := StudentScoreList{}
+func (ssm StudentScoreManager) getClassScore(classID int) (models.StudentScoreList, error) {
+	ret := models.StudentScoreList{}
 	classInfo, err := Cm.GetInfo(classID)
 	if err != nil {
 		return ret, err
@@ -57,7 +59,7 @@ func (ssm StudentScoreManager) getClassScore(classID int) (StudentScoreList, err
 	return ret, nil
 }
 
-func (ssm StudentScoreManager) getGradeScore(grade int) (StudentScoreList, error) {
+func (ssm StudentScoreManager) getGradeScore(grade int) (models.StudentScoreList, error) {
 	studentID, err := Um.getStudentList(grade)
 	if err != nil {
 		return nil, err
@@ -68,10 +70,10 @@ func (ssm StudentScoreManager) getGradeScore(grade int) (StudentScoreList, error
 	return ret, nil
 }
 
-func (ssm StudentScoreManager) getCurrentScore(sid []int64) StudentScoreList {
-	ret := StudentScoreList{}
+func (ssm StudentScoreManager) getCurrentScore(sid []int64) models.StudentScoreList {
+	ret := models.StudentScoreList{}
 	for _, s := range sid {
-		item := StudentScore{StudentID: s}
+		item := models.StudentScore{StudentID: s}
 		score, ok := ssm.score[s]
 		if !ok {
 			continue

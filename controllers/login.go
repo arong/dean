@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 
 	"github.com/arong/dean/base"
-	"github.com/arong/dean/models"
+	"github.com/arong/dean/manager"
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 )
@@ -17,12 +17,12 @@ type AuthController struct {
 
 // @Title Login
 // @Description Logs user into the system
-// @Success 200 {object} models.BaseResponse
+// @Success 200 {object} manager.BaseResponse
 // @Failure 403 user not exist
 // @router /login [post]
 func (l *AuthController) Login() {
 	resp := &BaseResponse{Code: -1}
-	req := models.LoginRequest{}
+	req := manager.LoginRequest{}
 	token := ""
 
 	err := json.Unmarshal([]byte(l.Ctx.Input.RequestBody), &req)
@@ -39,7 +39,7 @@ func (l *AuthController) Login() {
 		goto Out
 	}
 
-	token, err = models.Ac.Login(&req)
+	token, err = manager.Ac.Login(&req)
 	if err != nil {
 		logs.Debug("[AuthController::Login] login failed", err)
 		resp.Msg = err.Error()
@@ -60,12 +60,12 @@ Out:
 
 // @Title Update
 // @Description update password
-// @Success 200 {object} models.BaseResponse
+// @Success 200 {object} manager.BaseResponse
 // @Failure 403 user not exist
 // @router /update [post]
 func (l *AuthController) Update() {
 	resp := &BaseResponse{Code: -1}
-	req := models.UpdateRequest{}
+	req := manager.UpdateRequest{}
 
 	err := json.Unmarshal([]byte(l.Ctx.Input.RequestBody), &req)
 	if err != nil {
@@ -82,7 +82,7 @@ func (l *AuthController) Update() {
 	}
 
 	{
-		loginInfo, ok := l.Ctx.Input.GetData(base.Private).(models.LoginInfo)
+		loginInfo, ok := l.Ctx.Input.GetData(base.Private).(manager.LoginInfo)
 		if !ok {
 			logs.Warn("[UserController::Update] bug found")
 			resp.Code = base.ErrInternal
@@ -92,7 +92,7 @@ func (l *AuthController) Update() {
 		req.UserType = loginInfo.UserType
 	}
 
-	err = models.Ac.Update(&req)
+	err = manager.Ac.Update(&req)
 	if err != nil {
 		logs.Debug("[UserController::Update] Update failed", err)
 		resp.Msg = err.Error()
@@ -109,12 +109,12 @@ Out:
 
 // @Title Reset
 // @Description reset password
-// @Success 200 {object} models.BaseResponse
+// @Success 200 {object} manager.BaseResponse
 // @Failure 403 user not exist
 // @router /reset [post]
 func (l *AuthController) Reset() {
 	resp := &BaseResponse{Code: -1}
-	req := models.ResetPassReq{}
+	req := manager.ResetPassReq{}
 
 	err := json.Unmarshal([]byte(l.Ctx.Input.RequestBody), &req)
 	if err != nil {
@@ -123,7 +123,7 @@ func (l *AuthController) Reset() {
 	}
 
 	{
-		l, ok := l.Ctx.Input.GetData(base.Private).(models.LoginInfo)
+		l, ok := l.Ctx.Input.GetData(base.Private).(manager.LoginInfo)
 		if !ok {
 			resp.Code = base.ErrInternal
 			goto Out
@@ -140,7 +140,7 @@ func (l *AuthController) Reset() {
 		goto Out
 	}
 
-	err = models.Ac.ResetAllStudentPassword(&req)
+	err = manager.Ac.ResetAllStudentPassword(&req)
 	if err != nil {
 		logs.Debug("[UserController::Reset] login failed", err)
 		resp.Msg = err.Error()
@@ -171,7 +171,7 @@ func (l *AuthController) Logout() {
 		goto Out
 	}
 
-	err = models.Ac.Logout(req.Token)
+	err = manager.Ac.Logout(req.Token)
 	if err != nil {
 		logs.Debug("[UserController::Login] login failed", err)
 		resp.Msg = err.Error()

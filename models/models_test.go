@@ -1,7 +1,10 @@
 package models
 
 import (
+	"reflect"
 	"testing"
+
+	"github.com/arong/dean/base"
 )
 
 func TestQuestionnaireInfo_IsSame(t *testing.T) {
@@ -22,27 +25,58 @@ func TestQuestionnaireInfo_IsSame(t *testing.T) {
 	}
 }
 
-//func TestTeacher_Check(t *testing.T) {
-//	in := []struct {
-//		t   Teacher
-//		err error
-//	}{
-//		{t: Teacher{Name: "赵钱孙", Gender: eGenderMale, Birthday: "1992-02-14", Address: "深圳市罗湖区"}, err: nil}, // standard
-//		{t: Teacher{Name: "", Gender: eGenderMale, Birthday: "1992-02-14", Address: "深圳市罗湖区"}, err: ErrName},
-//		{t: Teacher{Name: strings.Repeat("烫", 17), Gender: eGenderMale, Birthday: "1992-02-14", Address: "深圳市罗湖区"}, err: ErrName},
-//		{t: Teacher{Name: "赵钱孙", Gender: 0, Birthday: "1992-02-14", Address: "深圳市罗湖区"}, err: ErrGender},
-//		{t: Teacher{Name: "赵钱孙", Gender: 4, Birthday: "1992-02-14", Address: "深圳市罗湖区"}, err: ErrGender},
-//		{t: Teacher{Name: "赵钱孙", Gender: eGenderFemale, Birthday: "1992-02-14", Address: "深圳市罗湖区"}, err: nil},
-//		{t: Teacher{Name: "赵钱孙", Gender: eGenderUnknown, Birthday: "1992-02-14", Address: "深圳市罗湖区"}, err: nil},
-//		{t: Teacher{Name: "赵钱孙", Gender: eGenderMale, Address: strings.Repeat("烫", 65)}, err: errAddress},
-//		{t: Teacher{Name: "赵钱孙", Gender: eGenderMale, Birthday: "1987-12-1 15:09:87"}, err: ErrBirthday},
-//		{t: Teacher{Name: "赵钱孙", Gender: eGenderMale}, err: nil},
-//	}
-//
-//	for k, v := range in {
-//		err := v.t.Check()
-//		if err != v.err {
-//			t.Fatalf("%d check failed, err=%v", k, err)
-//		}
-//	}
-//}
+func TestIntList_Page(t *testing.T) {
+	type args struct {
+		page base.CommPage
+	}
+	tests := []struct {
+		name string
+		il   IntList
+		args args
+		want IntList
+	}{
+		{
+			name: "normal range",
+			il: func() IntList {
+				ret := IntList{}
+				for i := 0; i < 1000; i++ {
+					ret = append(ret, i)
+				}
+				return ret
+			}(),
+			args: args{page: base.CommPage{Page: 1, Size: 10}},
+			want: func() IntList {
+				ret := IntList{}
+				for i := 0; i < 10; i++ {
+					ret = append(ret, i)
+				}
+				return ret
+			}(),
+		},
+		{
+			name: "out of range",
+			il:   IntList{},
+			args: args{page: base.CommPage{Page: 1, Size: 10}},
+			want: IntList{},
+		},
+		{
+			name: "out range",
+			il: func() IntList {
+				ret := IntList{}
+				for i := 0; i < 1000; i++ {
+					ret = append(ret, i)
+				}
+				return ret
+			}(),
+			args: args{page: base.CommPage{Page: 2, Size: 999}},
+			want: IntList{999},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.il.Page(tt.args.page); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("IntList.Page() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

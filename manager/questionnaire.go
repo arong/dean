@@ -1,36 +1,35 @@
-package models
+package manager
 
 import (
-	"time"
+	"github.com/arong/dean/models"
 
-	"github.com/arong/dean/base"
 	"github.com/astaxie/beego/logs"
 )
 
 var QuestionnaireManager questionnaireManager
 
 func init() {
-	QuestionnaireManager.titleMap = make(map[string]*QuestionnaireInfo)
-	QuestionnaireManager.questions = make(map[int]*QuestionInfo)
-	QuestionnaireManager.score = make(map[int64]TeacherScore)
+	QuestionnaireManager.titleMap = make(map[string]*models.QuestionnaireInfo)
+	QuestionnaireManager.questions = make(map[int]*models.QuestionInfo)
+	QuestionnaireManager.score = make(map[int64]models.TeacherScore)
 }
 
 type questionnaireManager struct {
-	questionnaires map[int]*QuestionnaireInfo
-	titleMap       map[string]*QuestionnaireInfo
-	questions      map[int]*QuestionInfo  // all question
-	score          map[int64]TeacherScore // teacher score
+	questionnaires map[int]*models.QuestionnaireInfo
+	titleMap       map[string]*models.QuestionnaireInfo
+	questions      map[int]*models.QuestionInfo  // all question
+	score          map[int64]models.TeacherScore // teacher score
 	//page map[int]
 }
 
-func (q *questionnaireManager) Init(idMap map[int]*QuestionnaireInfo) {
+func (q *questionnaireManager) Init(idMap map[int]*models.QuestionnaireInfo) {
 	q.questionnaires = idMap
 	for _, v := range idMap {
 		q.titleMap[v.Title] = v
 	}
 }
 
-func (q *questionnaireManager) Add(info *QuestionnaireInfo) (int, error) {
+func (q *questionnaireManager) Add(info *models.QuestionnaireInfo) (int, error) {
 	if _, ok := q.titleMap[info.Title]; ok {
 		logs.Debug("[questionnaireManager::Add] name duplicated")
 		return 0, errExist
@@ -48,13 +47,13 @@ func (q *questionnaireManager) Add(info *QuestionnaireInfo) (int, error) {
 }
 
 // many thing to do in update
-func (q *questionnaireManager) Update(info *QuestionnaireInfo) error {
+func (q *questionnaireManager) Update(info *models.QuestionnaireInfo) error {
 	curr, ok := q.questionnaires[info.QuestionnaireID]
 	if !ok {
 		return errNotExist
 	}
 
-	if curr.Status != QStatusDraft {
+	if curr.Status != models.QStatusDraft {
 		return errPermission
 	}
 
@@ -68,23 +67,25 @@ func (q *questionnaireManager) Update(info *QuestionnaireInfo) error {
 		curr.Title = info.Title
 	}
 
-	if curr.StartTime != info.StartTime {
-		tmp, err := time.Parse(base.DateTimeFormat, info.StartTime)
-		if err != nil {
+	// todo:fix up later
+	//if curr.StartTime != info.StartTime {
+	//	tmp, err := time.Parse(base.DateTimeFormat, info.StartTime)
+	//	if err != nil {
+	//
+	//	}
+	//	curr.startTime = tmp
+	//	curr.StartTime = info.StartTime
+	//}
 
-		}
-		curr.startTime = tmp
-		curr.StartTime = info.StartTime
-	}
-
-	if curr.StopTime != info.StopTime {
-		tmp, err := time.Parse(base.DateTimeFormat, info.StopTime)
-		if err != nil {
-			return err
-		}
-		curr.stopTime = tmp
-		curr.StopTime = info.StopTime
-	}
+	// todo: fix up later
+	//if curr.StopTime != info.StopTime {
+	//	tmp, err := time.Parse(base.DateTimeFormat, info.StopTime)
+	//	if err != nil {
+	//		return err
+	//	}
+	//	curr.stopTime = tmp
+	//	curr.StopTime = info.StopTime
+	//}
 
 	err := Ma.UpdateQuestionnaire(curr)
 	if err != nil {
@@ -100,13 +101,13 @@ type GenRequest struct {
 	QuestionnaireID int   `json:"questionnaire_id"`
 }
 
-func (qm *questionnaireManager) Generate(request GenRequest) (SurveyPages, error) {
+func (qm *questionnaireManager) Generate(request GenRequest) (models.SurveyPages, error) {
 	q, ok := qm.questionnaires[request.QuestionnaireID]
 	if !ok {
 		return nil, errNotExist
 	}
 
-	if q.Status != QStatusPublished {
+	if q.Status != models.QStatusPublished {
 		logs.Debug("[questionnaireManager::Generate] status not allowed")
 		return nil, errNotExist
 	}
@@ -129,9 +130,9 @@ func (qm *questionnaireManager) Generate(request GenRequest) (SurveyPages, error
 	}
 
 	logs.Debug("[questionnaireManager::Generate] q", class.TeacherList)
-	survey := SurveyPages{}
+	survey := models.SurveyPages{}
 	for _, v := range class.TeacherList {
-		page := SurveyPage{TeacherID: v.TeacherID, TeacherName: v.Teacher}
+		page := models.SurveyPage{TeacherID: v.TeacherID, TeacherName: v.Teacher}
 		for _, val := range q.Questions {
 			if len(val.Scope) > 0 {
 				found := false
@@ -160,7 +161,7 @@ func (q *questionnaireManager) Delete(id int) error {
 		return errNotExist
 	}
 
-	if curr.Status != QStatusDraft {
+	if curr.Status != models.QStatusDraft {
 		return errPermission
 	}
 
@@ -174,10 +175,10 @@ func (q *questionnaireManager) Delete(id int) error {
 	return nil
 }
 
-func (qm *questionnaireManager) Filter() (QuestionnaireList, error) {
-	ret := QuestionnaireList{}
+func (qm *questionnaireManager) Filter() (models.QuestionnaireList, error) {
+	ret := models.QuestionnaireList{}
 	for _, v := range qm.questionnaires {
-		tmp := QuestionnaireInfo{
+		tmp := models.QuestionnaireInfo{
 			QuestionnaireID: v.QuestionnaireID,
 			Title:           v.Title,
 			StartTime:       v.StartTime,
@@ -191,13 +192,13 @@ func (qm *questionnaireManager) Filter() (QuestionnaireList, error) {
 }
 
 // AddQuestion add question to questionnaire
-func (qm *questionnaireManager) AddQuestion(info *QuestionInfo) (int, error) {
+func (qm *questionnaireManager) AddQuestion(info *models.QuestionInfo) (int, error) {
 	q, ok := qm.questionnaires[info.QuestionnaireID]
 	if !ok {
 		return 0, errNotExist
 	}
 
-	if q.Status != QStatusDraft {
+	if q.Status != models.QStatusDraft {
 		return 0, errPermission
 	}
 
@@ -221,7 +222,7 @@ func (qm *questionnaireManager) AddQuestion(info *QuestionInfo) (int, error) {
 }
 
 // UpdateQuestion add question to questionnaire
-func (qm *questionnaireManager) UpdateQuestion(info *QuestionInfo) error {
+func (qm *questionnaireManager) UpdateQuestion(info *models.QuestionInfo) error {
 	curr, ok := qm.questions[info.QuestionID]
 	if !ok {
 		return errNotExist
@@ -232,7 +233,7 @@ func (qm *questionnaireManager) UpdateQuestion(info *QuestionInfo) error {
 		return errNotExist
 	}
 
-	if q.Status != QStatusDraft {
+	if q.Status != models.QStatusDraft {
 		return errPermission
 	}
 
@@ -277,7 +278,7 @@ func (qm *questionnaireManager) DeleteQuestion(id int) error {
 		return errNotExist
 	}
 
-	if q.Status != QStatusDraft {
+	if q.Status != models.QStatusDraft {
 		return errPermission
 	}
 
@@ -289,7 +290,7 @@ func (qm *questionnaireManager) DeleteQuestion(id int) error {
 
 	delete(qm.questions, id)
 	if len(q.Questions) > 0 {
-		list := QuestionList{}
+		list := models.QuestionList{}
 		for _, v := range q.Questions {
 			if v.QuestionID == id {
 				continue
@@ -302,7 +303,7 @@ func (qm *questionnaireManager) DeleteQuestion(id int) error {
 	return nil
 }
 
-func (qm *questionnaireManager) GetQuestionInfo(id int) (*QuestionInfo, error) {
+func (qm *questionnaireManager) GetQuestionInfo(id int) (*models.QuestionInfo, error) {
 	curr, ok := qm.questions[id]
 	if !ok {
 		return nil, errNotExist
@@ -310,13 +311,13 @@ func (qm *questionnaireManager) GetQuestionInfo(id int) (*QuestionInfo, error) {
 	return curr, nil
 }
 
-func (qm *questionnaireManager) GetQuestions(questionnaireID int) (QuestionList, error) {
+func (qm *questionnaireManager) GetQuestions(questionnaireID int) (models.QuestionList, error) {
 	curr, ok := qm.questionnaires[questionnaireID]
 	if !ok {
 		return nil, errNotExist
 	}
 
-	list := QuestionList{}
+	list := models.QuestionList{}
 	for _, v := range curr.Questions {
 		list = append(list, v)
 	}
@@ -325,7 +326,7 @@ func (qm *questionnaireManager) GetQuestions(questionnaireID int) (QuestionList,
 
 // submit questionnaire
 //Submit submit questionnaire of a student
-func (qm *questionnaireManager) Submit(req QuestionnaireSubmit) error {
+func (qm *questionnaireManager) Submit(req models.QuestionnaireSubmit) error {
 	// get question info
 	curr, ok := qm.questionnaires[req.QuestionnaireID]
 	if !ok {
@@ -333,7 +334,7 @@ func (qm *questionnaireManager) Submit(req QuestionnaireSubmit) error {
 		return errNotExist
 	}
 
-	if curr.Status != QStatusPublished {
+	if curr.Status != models.QStatusPublished {
 		return errPermission
 	}
 
@@ -358,7 +359,7 @@ func (qm *questionnaireManager) Submit(req QuestionnaireSubmit) error {
 			return errPermission
 		}
 
-		ans := make(map[int]*AnswerInfo)
+		ans := make(map[int]*models.AnswerInfo)
 		for _, val := range v.Answers {
 			ans[val.QuestionID] = val
 		}
@@ -385,27 +386,27 @@ func (qm *questionnaireManager) Submit(req QuestionnaireSubmit) error {
 			}
 
 			switch question.Type {
-			case QuestionTypeSingleSelection:
+			case models.QuestionTypeSingleSelection:
 				tScore := qm.score[v.TeacherID]
 				if w, ok := tmp.Answer.(float64); ok {
 					choice := int(w)
 					tScore.Count++
-					tScore.Meta[choice] = append(tScore.Meta[choice], sourceMeta{Grade: classInfo.Grade, Index: classInfo.Index})
+					tScore.Meta[choice] = append(tScore.Meta[choice], models.SourceMeta{Grade: classInfo.Grade, Index: classInfo.Index})
 				} else {
 					return errInvalidInput
 				}
-			case QuestionTypeMultiSelection:
+			case models.QuestionTypeMultiSelection:
 				tScore := qm.score[v.TeacherID]
 				if w, ok := tmp.Answer.([]float64); ok {
 					for _, i := range w {
 						choice := int(i)
 						tScore.Count++
-						tScore.Meta[choice] = append(tScore.Meta[choice], sourceMeta{Grade: classInfo.Grade, Index: classInfo.Index})
+						tScore.Meta[choice] = append(tScore.Meta[choice], models.SourceMeta{Grade: classInfo.Grade, Index: classInfo.Index})
 					}
 				} else {
 					return errInvalidInput
 				}
-			case QuestionTypeText:
+			case models.QuestionTypeText:
 				tScore := qm.score[v.TeacherID]
 				if w, ok := tmp.Answer.(string); ok {
 					if w != "" {

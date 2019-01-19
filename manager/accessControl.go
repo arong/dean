@@ -1,4 +1,4 @@
-package models
+package manager
 
 import (
 	"encoding/json"
@@ -38,7 +38,7 @@ func (l LoginRequest) Check() error {
 	if l.LoginName == "" ||
 		l.Password == "" ||
 		(l.UserType != base.AccountTypeStudent && l.UserType != base.AccountTypeTeacher) {
-		return errInvalidParam
+		return errors.New("invalid parameter")
 	}
 	return nil
 }

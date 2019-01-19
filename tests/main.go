@@ -27,22 +27,22 @@ func main() {
 		return
 	}
 
-	// remove teacher
-	//list, err := GetTeacherListAll(host)
-	//if err != nil {
-	//	return
-	//}
-	//
-	//log.Println("total teacher num:", len(list))
+	//remove teacher
+	list, err := GetTeacherListAll(host)
+	if err != nil {
+		return
+	}
 
-	//err = DeleteAllTeacher(list)
-	//
+	log.Println("total teacher num:", len(list))
+
+	err = DeleteAllTeacher(list)
+
 	//err = TeacherNormalFlow()
 	//if err != nil {
 	//	log.Println(err)
 	//	return
 	//}
-	//
+
 	//err = TeacherAbnormalFlow()
 	//if err != nil {
 	//	log.Println(err)
@@ -50,18 +50,18 @@ func main() {
 	//}
 
 	// add data back
-	subject = AddMultiSubject()
-	for _, v := range subject {
-		log.Println(v.ID)
-	}
-	subject, err = GetAllSubjects()
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	for _, v := range subject {
-		log.Println(v)
-	}
+	//subject = AddMultiSubject()
+	//for _, v := range subject {
+	//	log.Println(v.ID)
+	//}
+	//subject, err = GetAllSubjects()
+	//if err != nil {
+	//	log.Println(err)
+	//	return
+	//}
+	//for _, v := range subject {
+	//	log.Println(v)
+	//}
 	//err = AddMultiTeachers(subject)
 	//if err != nil {
 	//	log.Println("add teacher failed", err)

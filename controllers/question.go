@@ -3,8 +3,10 @@ package controllers
 import (
 	"encoding/json"
 
-	"github.com/arong/dean/base"
 	"github.com/arong/dean/models"
+
+	"github.com/arong/dean/base"
+	"github.com/arong/dean/manager"
 	"github.com/astaxie/beego"
 	"github.com/astaxie/beego/logs"
 )
@@ -20,8 +22,8 @@ type QuestionFilter struct {
 
 // @Title CreateUser
 // @Description create users
-// @Param	body		body 	models.User	true		"body for user content"
-// @Success 200 {int} models.User.StudentID
+// @Param	body		body 	manager.User	true		"body for user content"
+// @Success 200 {int} manager.User.StudentID
 // @Failure 403 body is empty
 // @router /add [post]
 func (q *QuestionController) Add() {
@@ -50,7 +52,7 @@ func (q *QuestionController) Add() {
 		goto Out
 	}
 
-	id, err = models.QuestionnaireManager.AddQuestion(&question)
+	id, err = manager.QuestionnaireManager.AddQuestion(&question)
 	if err != nil {
 		resp.Msg = err.Error()
 		logs.Info("[QuestionController::Add] AddUser failed")
@@ -67,8 +69,8 @@ Out:
 
 // @Title Update
 // @Description create users
-// @Param	body		body 	models.User	true		"body for user content"
-// @Success 200 {int} models.User.StudentID
+// @Param	body		body 	manager.User	true		"body for user content"
+// @Success 200 {int} manager.User.StudentID
 // @Failure 403 body is empty
 // @router /update [post]
 func (q *QuestionController) Update() {
@@ -91,7 +93,7 @@ func (q *QuestionController) Update() {
 
 	request.Options = request.Options.FilterEmpty()
 
-	err = models.QuestionnaireManager.UpdateQuestion(&request)
+	err = manager.QuestionnaireManager.UpdateQuestion(&request)
 	if err != nil {
 		resp.Msg = err.Error()
 		logs.Info("[QuestionController::Update] UpdateQuestion failed")
@@ -108,8 +110,8 @@ Out:
 
 // @Title DeleteQuestion
 // @Description create users
-// @Param	body		body 	models.User	true		"body for user content"
-// @Success 200 {int} models.User.StudentID
+// @Param	body		body 	manager.User	true		"body for user content"
+// @Success 200 {int} manager.User.StudentID
 // @Failure 403 body is empty
 // @router /delete [post]
 func (q *QuestionController) Delete() {
@@ -130,7 +132,7 @@ func (q *QuestionController) Delete() {
 		goto Out
 	}
 
-	err = models.QuestionnaireManager.DeleteQuestion(request.ID)
+	err = manager.QuestionnaireManager.DeleteQuestion(request.ID)
 	if err != nil {
 		resp.Msg = err.Error()
 		logs.Info("[QuestionController::Delete] DeleteDeleteQuestion failed")
@@ -147,7 +149,7 @@ Out:
 
 // @Title Filter
 // @Description find object which meet filter
-// @Success 200 {object} models.ScoreInfo
+// @Success 200 {object} manager.ScoreInfo
 // @Failure 403 :objectId is empty
 // @router /filter [post]
 func (q *QuestionController) Filter() {
@@ -168,7 +170,7 @@ func (q *QuestionController) Filter() {
 		goto Out
 	}
 
-	ret, err = models.QuestionnaireManager.GetQuestions(request.QuestionnaireID)
+	ret, err = manager.QuestionnaireManager.GetQuestions(request.QuestionnaireID)
 	if err != nil {
 		logs.Debug("[QuestionController::Filter] GetQuestions failed", "err", err)
 		resp.Code = base.ErrInternal
@@ -186,7 +188,7 @@ Out:
 
 // @Title Get Info
 // @Description find object which meet filter
-// @Success 200 {object} models.ScoreInfo
+// @Success 200 {object} manager.ScoreInfo
 // @Failure 403 :objectId is empty
 // @router /info [post]
 func (q *QuestionController) Info() {
@@ -207,7 +209,7 @@ func (q *QuestionController) Info() {
 		goto Out
 	}
 
-	ret, err = models.QuestionnaireManager.GetQuestionInfo(request.ID)
+	ret, err = manager.QuestionnaireManager.GetQuestionInfo(request.ID)
 	if err != nil {
 		logs.Debug("[QuestionController::Info] GetQuestionInfo failed", "err", err)
 		resp.Code = base.ErrInternal

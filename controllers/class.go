@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strconv"
 
+	"github.com/arong/dean/manager"
+
 	"github.com/arong/dean/base"
 
 	"github.com/arong/dean/models"
@@ -44,7 +46,7 @@ func (c *ClassController) Add() {
 
 	if request.MasterID > 0 {
 		// check masterID
-		if !models.Tm.IsExist(request.MasterID) {
+		if !manager.Tm.IsExist(request.MasterID) {
 			logs.Debug("[ClassController::Add] invalid head teacher id")
 			resp.Msg = "invalid head teacher id"
 			goto Out
@@ -63,7 +65,7 @@ func (c *ClassController) Add() {
 	}
 
 	if len(request.TeacherList) > 0 {
-		err = models.Tm.CheckInstructorList(request.TeacherList)
+		err = manager.Tm.CheckInstructorList(request.TeacherList)
 		if err != nil {
 			logs.Debug("[ClassController::Add] invalid instructor list")
 			resp.Msg = err.Error()
@@ -71,7 +73,7 @@ func (c *ClassController) Add() {
 		}
 	}
 
-	id, err = models.Cm.AddClass(&request)
+	id, err = manager.Cm.AddClass(&request)
 	if err != nil {
 		resp.Msg = err.Error()
 		logs.Debug("[ClassController::Add] AddClass failed", "err", err)
@@ -109,7 +111,7 @@ func (u *ClassController) Update() {
 		goto Out
 	}
 
-	err = models.Cm.ModifyClass(&class)
+	err = manager.Cm.ModifyClass(&class)
 	if err != nil {
 		logs.Debug("[ClassController::Update] ModifyClass failed", "err", err)
 		resp.Msg = err.Error()
@@ -147,7 +149,7 @@ func (c *ClassController) Delete() {
 		goto Out
 	}
 
-	ret, err = models.Cm.DelClass(request.IDList)
+	ret, err = manager.Cm.DelClass(request.IDList)
 	if err != nil {
 		logs.Debug("[ClassController::Delete] failed", "err", err)
 		resp.Msg = err.Error()
@@ -182,7 +184,7 @@ func (c *ClassController) Info() {
 		goto Out
 	}
 
-	data, err = models.Cm.GetInfo(id)
+	data, err = manager.Cm.GetInfo(id)
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out
@@ -205,7 +207,7 @@ func (c *ClassController) Filter() {
 		Code: 0,
 		Msg:  msgSuccess,
 	}
-	tmp := models.Cm.Filter()
+	tmp := manager.Cm.Filter()
 
 	resp.Data = tmp
 	c.Data["json"] = resp
@@ -221,7 +223,7 @@ func (c *ClassController) GetAll() {
 		Code: 0,
 		Msg:  msgSuccess,
 	}
-	tmp := models.Cm.GetAll()
+	tmp := manager.Cm.GetAll()
 
 	resp.Data = tmp
 	c.Data["json"] = resp
