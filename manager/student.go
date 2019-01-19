@@ -1,7 +1,6 @@
 package manager
 
 import (
-	"errors"
 	"sort"
 	"sync"
 
@@ -63,7 +62,9 @@ func (s *StudentManager) get(id int64) (models.StudentInfo, error) {
 
 func (s *StudentManager) Init(list models.StudentList) {
 	s.mutex.Lock()
-	s.list = make(models.StudentList, 0, len(list))
+	defer s.mutex.Unlock()
+
+	s.list = models.StudentList{}
 	s.idMap = make(map[int64]int)
 	s.uuidMap = make(map[string]int)
 
@@ -78,40 +79,38 @@ func (s *StudentManager) Init(list models.StudentList) {
 			s.uuidMap[v.RegisterID] = k
 		}
 	}
-	s.mutex.Unlock()
 }
 
 func (um *StudentManager) AddUser(u models.StudentInfo) (int64, error) {
-	var err error
-	if len(u.Name) == 0 {
-		return 0, errors.New("invalid name")
+	um.mutex.Lock()
+	defer um.mutex.Unlock()
+
+	if _, ok := um.uuidMap[u.RegisterID]; ok {
+		return 0, errExist
 	}
 
-	if u.Gender < eGenderMale || u.Gender > eGenderUnknown {
-		return 0, errors.New("invalid gender")
-	}
-
-	u.StudentID, err = um.store.SaveStudent(u)
+	studentID, err := um.store.SaveStudent(u)
 	if err != nil {
 		logs.Info("[AddUser]add user failed", err)
 		return 0, err
 	}
 
-	um.mutex.Lock()
+	u.StudentID = studentID
+
 	um.save(u)
-	um.mutex.Unlock()
 
 	return u.StudentID, nil
 }
 
-func (um *StudentManager) ModUser(u *models.StudentInfo) error {
-	if u.StudentID == 0 {
-		return errors.New("invalid user id")
-	}
-
+func (um *StudentManager) UpdateStudent(u models.StudentInfo) error {
 	curr, err := um.get(u.StudentID)
 	if err != nil {
 		return err
+	}
+
+	if curr.Equal(u) {
+		logs.Info("[] nothing to do")
+		return nil
 	}
 
 	if u.RegisterID != "" && curr.RegisterID != u.RegisterID {

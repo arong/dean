@@ -2,14 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"log"
 	"math/rand"
+	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
-
-	"github.com/go-vgo/gt/http"
 
 	"github.com/arong/dean/base"
 	"github.com/arong/dean/models"
@@ -105,9 +105,19 @@ func AddMultiTeachers(list models.SubjectList) error {
 }
 
 func getFakeInfo() models.Teacher {
-	resp, err := http.Get("http://192.168.231.132:8080/api", nil)
+	resp, err := http.Get("http://192.168.231.132:8080/api")
 	if err != nil {
 		log.Println("random source failed, check it")
+		return models.Teacher{}
+	}
+
+	if err != nil {
+		return models.Teacher{}
+	}
+	defer resp.Body.Close()
+
+	buff, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
 		return models.Teacher{}
 	}
 
@@ -119,7 +129,8 @@ func getFakeInfo() models.Teacher {
 		Email  string
 		Addr   string
 	}{}
-	err = json.Unmarshal(resp, &ret)
+
+	err = json.Unmarshal(buff, &ret)
 	if err != nil {
 		log.Println("unmarshal failed")
 		return models.Teacher{}

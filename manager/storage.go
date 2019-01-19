@@ -157,7 +157,8 @@ func (ma *mysqlAgent) LoadAllData() error {
 	}
 
 	// init class manager
-	Cm.Init(classMap)
+	// todo: fixup this
+	//Cm.Init(classMap)
 
 	// load students
 	userMap := make(map[int64]*models.StudentInfo)

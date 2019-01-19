@@ -2,7 +2,6 @@ package manager
 
 import (
 	"errors"
-	"sort"
 	"sync"
 
 	"github.com/arong/dean/models"
@@ -38,20 +37,26 @@ var (
 )
 
 type classManager struct {
-	idMap map[int]*models.Class
+	list  models.ClassList
+	idMap map[int]int
 	mutex sync.Mutex
 }
 
 // Init maintain the relation between class and teacher
-func (cm *classManager) Init(data map[int]*models.Class) {
+func (cm *classManager) Init(list models.ClassList) {
 	if cm == nil {
 		return
 	}
 
-	if data == nil {
-		cm.idMap = make(map[int]*models.Class)
-	} else {
-		cm.idMap = data
+	cm.list = models.ClassList{}
+	cm.idMap = make(map[int]int)
+
+	if list != nil {
+		for k, v := range list {
+			tmp := v
+			cm.list = append(cm.list, tmp)
+			cm.idMap[v.ID] = k
+		}
 	}
 }
 
@@ -78,7 +83,7 @@ func (cm *classManager) AddClass(c *models.Class) (int, error) {
 		return ret, err
 	}
 
-	cm.idMap[c.ID] = c
+	//cm.idMap[c.ID] = c
 
 	logs.Info("create a new class", "classID", c.ID)
 	return c.ID, nil
@@ -89,7 +94,7 @@ func (cm *classManager) ModifyClass(r *models.Class) error {
 	cm.mutex.Lock()
 	defer cm.mutex.Unlock()
 
-	curr, ok := cm.idMap[r.ID]
+	_, ok := cm.idMap[r.ID]
 	if !ok {
 		return ErrClassNotExist
 	}
@@ -101,33 +106,33 @@ func (cm *classManager) ModifyClass(r *models.Class) error {
 	//	return err
 	//}
 
-	if curr.Equal(*r) {
-		logs.Debug("[ModifyClass] need do nothing")
-		return nil
-	}
-
-	if r.Term != 0 {
-		curr.Term = r.Term
-	}
-
-	if r.MasterID != 0 && r.MasterID != curr.MasterID {
-		curr.MasterID = r.MasterID
-	}
-
-	if r.Year != 0 && r.Year != curr.Year {
-		curr.Year = r.Year
-	}
-
-	// diff two list
-	curr.TeacherList, curr.AddList, curr.RemoveList = curr.TeacherList.Diff(r.TeacherList)
-	logs.Debug("[ModifyClass]", "addList", curr.AddList, "delList", curr.RemoveList, "all", curr.TeacherList)
-	err := Ma.UpdateClass(curr)
-	if err != nil {
-		logs.Warn("[ModifyClass] database error")
-		return err
-	}
-	curr.AddList = models.InstructorList{}
-	curr.RemoveList = models.InstructorList{}
+	//if curr.Equal(*r) {
+	//	logs.Debug("[ModifyClass] need do nothing")
+	//	return nil
+	//}
+	//
+	//if r.Term != 0 {
+	//	curr.Term = r.Term
+	//}
+	//
+	//if r.MasterID != 0 && r.MasterID != curr.MasterID {
+	//	curr.MasterID = r.MasterID
+	//}
+	//
+	//if r.Year != 0 && r.Year != curr.Year {
+	//	curr.Year = r.Year
+	//}
+	//
+	//// diff two list
+	//curr.TeacherList, curr.AddList, curr.RemoveList = curr.TeacherList.Diff(r.TeacherList)
+	//logs.Debug("[ModifyClass]", "addList", curr.AddList, "delList", curr.RemoveList, "all", curr.TeacherList)
+	//err := Ma.UpdateClass(curr)
+	//if err != nil {
+	//	logs.Warn("[ModifyClass] database error")
+	//	return err
+	//}
+	//curr.AddList = models.InstructorList{}
+	//curr.RemoveList = models.InstructorList{}
 	return nil
 }
 
@@ -158,23 +163,23 @@ func (cm *classManager) DelClass(list models.ClassIDList) (models.ClassIDList, e
 // Filter  get class list with condition
 func (cm *classManager) Filter() base.CommList {
 	resp := base.CommList{}
-	list := models.ClassList{}
-	for _, v := range cm.idMap {
-		list = append(list, v)
-	}
-	sort.Sort(list)
-	resp.List = list
-	resp.Total = len(list)
+	//list := models.ClassList{}
+	//for _, v := range cm.idMap {
+	//	list = append(list, v)
+	//}
+	//sort.Sort(list)
+	//resp.List = list
+	//resp.Total = len(list)
 	return resp
 }
 
 // GetAll get all class list
 func (cm *classManager) GetAll() models.ItemList {
 	resp := models.ItemList{}
-	for _, v := range cm.idMap {
-		resp = append(resp, models.Item{ID: v.ID, Name: v.Name})
-	}
-	sort.Sort(resp)
+	//for _, v := range cm.idMap {
+	//	resp = append(resp, models.Item{ID: v.ID, Name: v.Name})
+	//}
+	//sort.Sort(resp)
 	return resp
 }
 
@@ -186,11 +191,11 @@ func (cm *classManager) GetInfo(id int) (*models.Class, error) {
 		return ret, nil
 	}
 
-	val, ok := cm.idMap[id]
-	if !ok {
-		return ret, ErrClassNotExist
-	}
+	//val, ok := cm.idMap[id]
+	//if !ok {
+	//	return ret, ErrClassNotExist
+	//}
 
-	*ret = *val
+	//*ret = *val
 	return ret, nil
 }

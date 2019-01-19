@@ -114,33 +114,21 @@ Out:
 
 // @Title Update
 // @Description update the user
-// @Param	uid		path 	string	true		"The uid you want to update"
 // @Param	body		body 	models.User	true		"body for user content"
 // @Success 200 {object} models.User
 // @Failure 403 :uid is not int
 // @router /update [post]
 func (u *StudentController) Update() {
 	resp := &BaseResponse{Code: -1}
-	tmp := u.GetString(":uid")
 	var user models.StudentInfo
-	uid, err := strconv.ParseInt(tmp, 10, 64)
-	if err != nil {
-		logs.Debug("[StudentController::Update] parse uid failed")
-		goto Out
-	}
 
-	if uid == 0 {
-		logs.Debug("[StudentController::Update] invalid uid")
-		goto Out
-	}
-
-	err = json.Unmarshal(u.Ctx.Input.RequestBody, &user)
+	err := json.Unmarshal(u.Ctx.Input.RequestBody, &user)
 	if err != nil {
 		resp.Msg = msgInvalidJSON
 		goto Out
 	}
 
-	err = manager.Um.ModUser(&user)
+	err = manager.Um.UpdateStudent(user)
 	if err != nil {
 		resp.Msg = err.Error()
 		goto Out

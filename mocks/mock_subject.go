@@ -35,6 +35,7 @@ func (m *MockSubjectStore) EXPECT() *MockSubjectStoreMockRecorder {
 
 // DeleteSubject mocks base method
 func (m *MockSubjectStore) DeleteSubject(arg0 int) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteSubject", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -42,11 +43,13 @@ func (m *MockSubjectStore) DeleteSubject(arg0 int) error {
 
 // DeleteSubject indicates an expected call of DeleteSubject
 func (mr *MockSubjectStoreMockRecorder) DeleteSubject(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteSubject", reflect.TypeOf((*MockSubjectStore)(nil).DeleteSubject), arg0)
 }
 
 // SaveSubject mocks base method
 func (m *MockSubjectStore) SaveSubject(arg0 models.SubjectInfo) (int, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SaveSubject", arg0)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
@@ -55,11 +58,13 @@ func (m *MockSubjectStore) SaveSubject(arg0 models.SubjectInfo) (int, error) {
 
 // SaveSubject indicates an expected call of SaveSubject
 func (mr *MockSubjectStoreMockRecorder) SaveSubject(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SaveSubject", reflect.TypeOf((*MockSubjectStore)(nil).SaveSubject), arg0)
 }
 
 // UpdateSubject mocks base method
 func (m *MockSubjectStore) UpdateSubject(arg0 models.SubjectInfo) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateSubject", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -67,5 +72,6 @@ func (m *MockSubjectStore) UpdateSubject(arg0 models.SubjectInfo) error {
 
 // UpdateSubject indicates an expected call of UpdateSubject
 func (mr *MockSubjectStoreMockRecorder) UpdateSubject(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSubject", reflect.TypeOf((*MockSubjectStore)(nil).UpdateSubject), arg0)
 }

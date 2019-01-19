@@ -12,12 +12,13 @@ import (
 )
 
 var (
-	ErrName     = errors.New("invalid name")
-	ErrGender   = errors.New("invalid gender")
-	ErrBirthday = errors.New("invalid birthday")
-	errAddress  = errors.New("invalid address")
-	errMobile   = errors.New("invalid mobile number")
-	errSubject  = errors.New("invalid subject id")
+	ErrName       = errors.New("invalid name")
+	ErrGender     = errors.New("invalid gender")
+	ErrBirthday   = errors.New("invalid birthday")
+	errAddress    = errors.New("invalid address")
+	errMobile     = errors.New("invalid mobile number")
+	errSubject    = errors.New("invalid subject id")
+	errRegisterID = errors.New("invalid student register id")
 )
 
 /*
@@ -158,7 +159,7 @@ func (c Class) Equal(r Class) bool {
 	return true
 }
 
-type ClassList []*Class
+type ClassList []Class
 
 type ClassResp struct {
 	Class
