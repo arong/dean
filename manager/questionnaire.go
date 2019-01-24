@@ -117,7 +117,7 @@ func (qm *questionnaireManager) Generate(request GenRequest) (models.SurveyPages
 		return nil, errNotExist
 	}
 
-	student, err := Um.GetUser(request.StudentID)
+	student, err := Um.GetStudent(request.StudentID)
 	if err != nil {
 		logs.Error("[questionnaireManager::Generate] GetUser failed", "err", err)
 		return nil, err
@@ -338,7 +338,7 @@ func (qm *questionnaireManager) Submit(req models.QuestionnaireSubmit) error {
 		return errPermission
 	}
 
-	studentInfo, err := Um.GetUser(req.StudentID)
+	studentInfo, err := Um.GetStudent(req.StudentID)
 	if err != nil {
 		return err
 	}

@@ -69,19 +69,29 @@ func (s *StudentManager) Init(list models.StudentList) {
 	s.uuidMap = make(map[string]int)
 
 	if list != nil {
-		for k, v := range list {
-			if v.StudentID != base.StatusValid {
+		for i, v := range list {
+			if v.Status != base.StatusValid {
 				continue
 			}
 			tmp := v
 			s.list = append(s.list, tmp)
-			s.idMap[v.StudentID] = k
-			s.uuidMap[v.RegisterID] = k
+
+			if _, ok := s.idMap[v.StudentID]; ok {
+				logs.Warn("[Init] student id duplicate")
+				continue
+			}
+			s.idMap[v.StudentID] = i
+
+			if _, ok := s.uuidMap[v.RegisterID]; ok {
+				logs.Warn("[Init] student id duplicate")
+				continue
+			}
+			s.uuidMap[v.RegisterID] = i
 		}
 	}
 }
 
-func (um *StudentManager) AddUser(u models.StudentInfo) (int64, error) {
+func (um *StudentManager) AddStudent(u models.StudentInfo) (int64, error) {
 	um.mutex.Lock()
 	defer um.mutex.Unlock()
 
@@ -109,29 +119,40 @@ func (um *StudentManager) UpdateStudent(u models.StudentInfo) error {
 	}
 
 	if curr.Equal(u) {
-		logs.Info("[] nothing to do")
+		logs.Info("[UpdateStudent] nothing to do")
 		return nil
 	}
 
-	if u.RegisterID != "" && curr.RegisterID != u.RegisterID {
-		curr.RegisterID = u.RegisterID
+	err = um.store.UpdateStudent(curr)
+	if err != nil {
+		return err
 	}
+
+	// register id could not change
+	um.mutex.Lock()
+	um.update(curr)
+	um.mutex.Unlock()
+
 	return nil
 }
 
-func (um *StudentManager) DelUser(uidList []int64) ([]int64, error) {
+func (um *StudentManager) DelStudent(uidList []int64) ([]int64, error) {
 	failed := []int64{}
 	load := []int64{}
 
 	for _, uid := range uidList {
-		_, ok := um.idMap[uid]
+		k, ok := um.idMap[uid]
 		if !ok {
 			failed = append(failed, uid)
 			continue
 		}
 
 		load = append(load, uid)
-		delete(um.idMap, uid)
+		um.delete(k)
+	}
+
+	if len(load) == 0 {
+		return failed, errNotExist
 	}
 
 	err := um.store.DeleteStudent(load)
@@ -143,7 +164,7 @@ func (um *StudentManager) DelUser(uidList []int64) ([]int64, error) {
 	return failed, nil
 }
 
-func (um *StudentManager) GetUser(uid int64) (models.StudentInfo, error) {
+func (um *StudentManager) GetStudent(uid int64) (models.StudentInfo, error) {
 	if uid <= 0 {
 		return models.StudentInfo{}, errInvalidParam
 	}
@@ -164,30 +185,13 @@ func (um *StudentManager) GetStudentByRegisterNumber(reg string) (models.Student
 	return um.list[s], nil
 }
 
-func (um *StudentManager) GetAllUsers(f models.StudentFilter) base.CommList {
+func (um *StudentManager) Filter(f models.StudentFilter) base.CommList {
 	resp := base.CommList{}
 	ret := models.StudentList{}
-	total := 0
-	start, end := f.GetRange()
 
-	logs.Debug("[GetAllStudent]", "total count", len(um.idMap), "start", start, "end", end)
+	resp.Total, ret = um.list.Filter(f)
 	sort.Sort(ret)
 	resp.List = ret
-	resp.Total = total
+
 	return resp
-}
-
-func (um *StudentManager) getStudentList(grade int) ([]int64, error) {
-	ret := []int64{}
-	for _, v := range um.list {
-		ret = append(ret, v.StudentID)
-	}
-	return ret, nil
-}
-
-func (um *StudentManager) IsExist(studentID int64) bool {
-	um.mutex.Lock()
-	um.mutex.Unlock()
-	_, ok := um.idMap[studentID]
-	return ok
 }

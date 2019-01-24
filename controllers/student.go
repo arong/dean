@@ -35,7 +35,7 @@ func (u *StudentController) Add() {
 		goto Out
 	}
 
-	id, err = manager.Um.AddUser(user)
+	id, err = manager.Um.AddStudent(user)
 	if err != nil {
 		resp.Msg = err.Error()
 		logs.Info("[UserController::Post] AddUser failed")
@@ -76,7 +76,7 @@ func (u *StudentController) Filter() {
 		goto Out
 	}
 
-	ret = manager.Um.GetAllUsers(request)
+	ret = manager.Um.Filter(request)
 	resp.Msg = msgSuccess
 	resp.Data = ret
 Out:
@@ -99,7 +99,7 @@ func (u *StudentController) GetInfo() {
 		goto Out
 	}
 
-	resp.Data, err = manager.Um.GetUser(uid)
+	resp.Data, err = manager.Um.GetStudent(uid)
 	if err != nil {
 		resp.Msg = err.Error()
 		logs.Debug("getUserID failed")
@@ -163,7 +163,7 @@ func (u *StudentController) Delete() {
 		goto Out
 	}
 
-	failed, err = manager.Um.DelUser(request.IDList)
+	failed, err = manager.Um.DelStudent(request.IDList)
 	if err != nil {
 		logs.Debug("[StudentController::Delete] failed", err)
 		resp.Msg = err.Error()

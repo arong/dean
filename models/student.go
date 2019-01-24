@@ -74,11 +74,13 @@ func (s StudentInfo) Check() error {
 
 type StudentList []StudentInfo
 
-func (s StudentList) Filter(f StudentFilter) StudentList {
+func (s StudentList) Filter(f StudentFilter) (int, StudentList) {
 	ret := StudentList{}
-	list := IntList{}
+	start, end := f.GetRange()
 
-	for k, v := range s {
+	i := 0
+	total := 0
+	for _, v := range s {
 		if f.Name != "" && f.Name != v.Name {
 			continue
 		}
@@ -87,13 +89,15 @@ func (s StudentList) Filter(f StudentFilter) StudentList {
 			continue
 		}
 
-		list = append(list, k)
+		// satisfy requirement
+		total++
+		if i >= start && i < end {
+			ret = append(ret, v)
+		}
+		i++
 	}
-	list = list.Page(f.CommPage)
-	for _, v := range list {
-		ret = append(ret, s[v])
-	}
-	return ret
+
+	return total, ret
 }
 
 func (cl StudentList) Len() int {

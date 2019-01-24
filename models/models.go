@@ -197,16 +197,12 @@ type StudentFilter struct {
 }
 
 func (s StudentFilter) Check() error {
-	if s.Name != "" {
-		return nil
-	}
-
-	if s.Number != "" {
-		return nil
-	}
-
 	if s.Page < 0 || s.Size <= 0 {
 		return errors.New("page error")
+	}
+
+	if s.Size > 100 {
+		return errors.New("too large entity")
 	}
 	return nil
 }
