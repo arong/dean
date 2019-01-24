@@ -123,6 +123,20 @@ func TestStudentList_Filter(t *testing.T) {
 				return students[4:8]
 			}(),
 		},
+		{
+			name:  "not found",
+			s:     students,
+			args:  args{f: StudentFilter{CommPage: base.CommPage{Page: 1, Size: len(students)}, Name: "name not found"}},
+			want:  0,
+			want1: StudentList{},
+		},
+		{
+			name:  "not found",
+			s:     students,
+			args:  args{f: StudentFilter{CommPage: base.CommPage{Page: 1, Size: len(students)}, RegisterID: "register not found"}},
+			want:  0,
+			want1: StudentList{},
+		},
 	}
 
 	for _, tt := range tests {
@@ -133,6 +147,36 @@ func TestStudentList_Filter(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got1, tt.want1) {
 				t.Errorf("StudentList.Filter() got1 = %v, want %v", got1, tt.want1)
+			}
+		})
+	}
+}
+
+func TestStudentInfo_Equal(t *testing.T) {
+	tests := []struct {
+		name string
+		l    StudentInfo
+		r    StudentInfo
+		want bool
+	}{
+		{
+			name: "just equal",
+			l:    students[0],
+			r:    students[0],
+			want: true,
+		},
+		{
+			name: "not equal",
+			l:    students[0],
+			r:    students[1],
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.l.Equal(tt.r); got != tt.want {
+				t.Errorf("StudentInfo.Equal() = %v, want %v", got, tt.want)
 			}
 		})
 	}

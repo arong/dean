@@ -85,7 +85,7 @@ func (s StudentList) Filter(f StudentFilter) (int, StudentList) {
 			continue
 		}
 
-		if f.Number != "" && f.Number != v.RegisterID {
+		if f.RegisterID != "" && f.RegisterID != v.RegisterID {
 			continue
 		}
 

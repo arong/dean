@@ -192,8 +192,8 @@ type Filter struct {
 type StudentFilter struct {
 	Filter
 	base.CommPage
-	Name   string
-	Number string
+	Name       string // 姓名
+	RegisterID string // 学号
 }
 
 func (s StudentFilter) Check() error {

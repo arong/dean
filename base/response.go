@@ -9,8 +9,8 @@ type BaseResponse struct {
 }
 
 type CommPage struct {
-	Page int `json:"page"`
-	Size int `json:"size"`
+	Page int `json:"page"` // 页数
+	Size int `json:"size"` // 每页大小
 }
 
 func (cp CommPage) GetRange() (int, int) {
