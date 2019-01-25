@@ -304,7 +304,7 @@ func TestTeacherManager_Filter(t *testing.T) {
 	mockStore := mocks.NewMockTeacherStore(mockCtrl)
 
 	type args struct {
-		f TeacherFilter
+		f models.TeacherFilter
 	}
 	tests := []struct {
 		name string
@@ -315,7 +315,7 @@ func TestTeacherManager_Filter(t *testing.T) {
 		{
 			name: "normal test",
 			list: teachers,
-			args: args{f: TeacherFilter{CommPage: base.CommPage{Page: 1, Size: len(teachers)}}},
+			args: args{f: models.TeacherFilter{CommPage: base.CommPage{Page: 1, Size: len(teachers)}}},
 			want: base.CommList{Total: len(teachers), List: func() models.TeacherList {
 				load := models.TeacherList{}
 				for _, v := range teachers {

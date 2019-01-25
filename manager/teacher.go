@@ -317,42 +317,22 @@ func (tm *TeacherManager) GetTeacherInfo(id int64) (TeacherInfoResp, error) {
 	return ret, err
 }
 
-type TeacherFilter struct {
-	base.CommPage
-	Gender int    `json:"gender"`
-	Age    int    `json:"age"`
-	Name   string `json:"name"`
-	Mobile string `json:"mobile"`
-}
+//type TeacherFilter struct {
+//	base.CommPage
+//	Gender int    `json:"gender"`
+//	Age    int    `json:"age"`
+//	Name   string `json:"name"`
+//	Mobile string `json:"mobile"`
+//}
 
-func (tm *TeacherManager) Filter(f TeacherFilter) base.CommList {
+func (tm *TeacherManager) Filter(f models.TeacherFilter) base.CommList {
 	ret := models.TeacherList{}
 
 	tm.mutex.Lock()
-	list := models.IntList{}
-	for k, v := range tm.list {
-		if v.Status != base.StatusValid {
-			continue
-		}
-
-		if f.Gender != 0 && f.Gender != v.Gender {
-			continue
-		}
-
-		if f.Name != "" && f.Name != v.Name {
-			continue
-		}
-		list = append(list, k)
-	}
-
-	total := len(list)
-	list = list.Page(f.CommPage)
-	for _, v := range list {
-		ret = append(ret, tm.list[v])
-	}
-
-	logs.Debug("[TeacherManager::GetAll]", "len(list)", len(tm.list))
+	total, ret := tm.list.Filter(f)
 	tm.mutex.Unlock()
+
+	logs.Debug("[Filter]", "total", total)
 
 	return base.CommList{Total: total, List: ret}
 }

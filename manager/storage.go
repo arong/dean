@@ -101,7 +101,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 
 	// init teacher manager
 	// todo: fix up this
-	//Tm.Init(teacherList)
+	Tm.Init(teacherList)
 
 	// load class
 	classMap := make(map[int]*models.Class)
@@ -164,7 +164,7 @@ func (ma *mysqlAgent) LoadAllData() error {
 	userMap := make(map[int64]*models.StudentInfo)
 	studentList := models.StudentList{}
 	{
-		rows, err := ma.db.Query("SELECT iUserID,vName,vRegistNumber,eGender,iClassID FROM tbStudent WHERE eStatus = 1;")
+		rows, err := ma.db.Query("SELECT iStudentID,vName,vRegistNumber,eGender,dtBirthday,vAddress,iClassID FROM tbStudent WHERE eStatus = 1;")
 		if err != nil {
 			logs.Error("[LoadAllData] failed to load tbStudent", "err", err)
 			return err
@@ -172,9 +172,17 @@ func (ma *mysqlAgent) LoadAllData() error {
 		defer rows.Close()
 
 		for rows.Next() {
-			u := models.StudentInfo{}
-			err = rows.Scan(&u.StudentID, &u.Name, &u.RegisterID, &u.Gender, &u.ClassID)
+			u := models.StudentInfo{Status: base.StatusValid}
+			err = rows.Scan(&u.StudentID, &u.Name, &u.RegisterID, &u.Gender, &u.Birthday, &u.Address, &u.ClassID)
 			if err != nil {
+				continue
+			}
+			if u.Birthday == defaultBirthday {
+				u.Birthday = ""
+			}
+			err = u.Check()
+			if err != nil {
+				logs.Warn("[LoadAllData] bad data found at tbStudent ", u)
 				continue
 			}
 			userMap[u.StudentID] = &u
@@ -460,6 +468,10 @@ func (ma *mysqlAgent) DeleteClass(id int) error {
 
 // InsertStudent insert teacher info
 func (ma *mysqlAgent) SaveStudent(u models.StudentInfo) (int64, error) {
+	if u.Birthday == "" {
+		u.Birthday = defaultBirthday
+	}
+
 	stmt, err := ma.db.Prepare("INSERT INTO `tbStudent`(`vRegistNumber`, `vName`, `eGender`,`iClassID`,`vAddress`,`dtBirthday`) VALUES (?,?,?,?,?,?)")
 	if err != nil {
 		logs.Error("[mysqlAgent::InsertUser] failed", "err")
@@ -482,7 +494,7 @@ func (ma *mysqlAgent) SaveStudent(u models.StudentInfo) (int64, error) {
 
 // UpdateStudent update student info
 func (ma *mysqlAgent) UpdateStudent(u models.StudentInfo) error {
-	stmtIns, err := ma.db.Prepare("UPDATE tbStudent SET vRegistNumber=?,vName=?,eGender=?,iClassID=?,vAddress=?,dtBirthday=? WHERE iUserID=?;")
+	stmtIns, err := ma.db.Prepare("UPDATE tbStudent SET vRegistNumber=?,vName=?,eGender=?,iClassID=?,vAddress=?,dtBirthday=? WHERE iStudentID=?;")
 	if err != nil {
 		return err
 	}
@@ -498,7 +510,7 @@ func (ma *mysqlAgent) UpdateStudent(u models.StudentInfo) error {
 
 // DeleteUser delete student info
 func (ma *mysqlAgent) DeleteStudent(ids []int64) error {
-	stmtIns, err := ma.db.Prepare("UPDATE tbStudent SET eStatus=? WHERE iUserID=?;")
+	stmtIns, err := ma.db.Prepare("UPDATE tbStudent SET eStatus=? WHERE iStudentID=?;")
 	if err != nil {
 		return err
 	}
@@ -516,7 +528,7 @@ func (ma *mysqlAgent) DeleteStudent(ids []int64) error {
 
 // UpdatePassword password
 func (ma *mysqlAgent) InsertPassword(l *LoginInfo) error {
-	stmtIns, err := ma.db.Prepare("INSERT INTO `tbPassword`(`iUserID`, `eType`, `vLoginName`, `vPassword`) VALUES (?,?,?,?);")
+	stmtIns, err := ma.db.Prepare("INSERT INTO `tbPassword`(`iStudentID`, `eType`, `vLoginName`, `vPassword`) VALUES (?,?,?,?);")
 	if err != nil {
 		logs.Warn("[InsertPassword] Prepare sql failed", "err", err)
 		return err
@@ -533,7 +545,7 @@ func (ma *mysqlAgent) InsertPassword(l *LoginInfo) error {
 
 // UpdatePassword password
 func (ma *mysqlAgent) UpdatePassword(id int64, password string) error {
-	stmtIns, err := ma.db.Prepare("UPDATE tbPassword SET vPassword=? WHERE iUserID=?;")
+	stmtIns, err := ma.db.Prepare("UPDATE tbPassword SET vPassword=? WHERE iStudentID=?;")
 	if err != nil {
 		return err
 	}

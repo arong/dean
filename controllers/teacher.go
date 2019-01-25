@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strconv"
 
+	"github.com/arong/dean/base"
+
 	"github.com/arong/dean/manager"
 
 	"github.com/arong/dean/models"
@@ -21,15 +23,23 @@ type TeacherController struct {
 // @Param	body		body 	models.Teacher	true		"The object content"
 // @Success 200 {string} models.Teacher.TeacherID
 // @router /add [post]
-func (o *TeacherController) Add() {
+func (t *TeacherController) Add() {
+	var err error
 	var id int64
 	request := models.Teacher{}
 	resp := BaseResponse{Code: -1}
 
-	err := json.Unmarshal(o.Ctx.Input.RequestBody, &request)
+	data, ok := t.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid input"
+		logs.Warn("[TeacherController::Add] empty input found", "data", data)
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		resp.Msg = msgInvalidJSON
-		logs.Debug("[TeacherController] Unmarshal failed", "err", err)
+		logs.Debug("[TeacherController::Add] Unmarshal failed", "err", err)
 		goto Out
 	}
 
@@ -44,8 +54,8 @@ func (o *TeacherController) Add() {
 		ID int64 `json:"id"`
 	}{ID: id}
 Out:
-	o.Data["json"] = resp
-	o.ServeJSON()
+	t.Data["json"] = resp
+	t.ServeJSON()
 }
 
 // @Title Update
@@ -54,12 +64,19 @@ Out:
 // @Success 200 {object} models.User
 // @Failure 403 :uid is not int
 // @router /modify [post]
-func (u *TeacherController) Modify() {
+func (t *TeacherController) Modify() {
 	resp := &BaseResponse{Code: -1}
 	var request models.Teacher
 	var err error
 
-	err = json.Unmarshal(u.Ctx.Input.RequestBody, &request)
+	data, ok := t.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid input"
+		logs.Warn("[TeacherController::Put] empty input found", "data", data)
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		logs.Info("[TeacherController::Put] unmarshal failed", "err", err)
 		resp.Msg = msgInvalidJSON
@@ -80,8 +97,8 @@ func (u *TeacherController) Modify() {
 	resp.Code = 0
 	resp.Msg = msgSuccess
 Out:
-	u.Data["json"] = resp
-	u.ServeJSON()
+	t.Data["json"] = resp
+	t.ServeJSON()
 }
 
 // @Title Get
@@ -126,10 +143,18 @@ Out:
 // @Param	body		body 	models.TeacherFilter	true		"The object content"
 // @Success 200 {object} models.TeacherListResp
 // @router /filter [post]
-func (o *TeacherController) Filter() {
+func (t *TeacherController) Filter() {
 	resp := &BaseResponse{}
-	request := manager.TeacherFilter{}
-	err := json.Unmarshal(o.Ctx.Input.RequestBody, &request)
+	request := models.TeacherFilter{}
+	var err error
+	data, ok := t.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid input"
+		logs.Warn("[TeacherController::Put] empty input found", "data", data)
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		resp.Msg = msgInvalidJSON
 		logs.Debug("[TeacherController::GetAll] Unmarshal failed", "err", err)
@@ -145,8 +170,8 @@ func (o *TeacherController) Filter() {
 	resp.Data = manager.Tm.Filter(request)
 
 Out:
-	o.Data["json"] = resp
-	o.ServeJSON()
+	t.Data["json"] = resp
+	t.ServeJSON()
 }
 
 // @Title GetAll
@@ -172,12 +197,20 @@ type DeleteTeacherResp struct {
 // @Success 200 {string} delete success!
 // @Failure 403 uid is empty
 // @router /delete [post]
-func (tc *TeacherController) Delete() {
+func (t *TeacherController) Delete() {
 	request := DeleteTeacherReq{}
 	resp := &BaseResponse{Code: -1}
 	ret := DeleteTeacherResp{}
 
-	err := json.Unmarshal(tc.Ctx.Input.RequestBody, &request)
+	var err error
+	data, ok := t.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid input"
+		logs.Warn("[TeacherController::Put] empty input found", "data", data)
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		resp.Msg = msgInvalidJSON
 		logs.Debug("[TeacherController::Delete] Unmarshal failed", "err", err)
@@ -206,6 +239,6 @@ func (tc *TeacherController) Delete() {
 		}{FailedList: ret.FailedList}
 	}
 Out:
-	tc.Data["json"] = resp
-	tc.ServeJSON()
+	t.Data["json"] = resp
+	t.ServeJSON()
 }

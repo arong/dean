@@ -60,6 +60,21 @@ func (il IntList) Page(page base.CommPage) IntList {
 	}
 }
 
+func (il IntList) RemoveZeroNegative() IntList {
+	curr := 0
+	for i, v := range il {
+		if v <= 0 {
+			continue
+		}
+
+		if curr != i {
+			il[curr] = v
+		}
+		curr++
+	}
+	return il[0:curr]
+}
+
 type Int64List []int64
 
 func (il Int64List) Page(page base.CommPage) Int64List {
@@ -73,6 +88,21 @@ func (il Int64List) Page(page base.CommPage) Int64List {
 	} else {
 		return il[start:end]
 	}
+}
+
+func (il Int64List) RemoveZeroNegative() Int64List {
+	curr := 0
+	for i, v := range il {
+		if v <= 0 {
+			continue
+		}
+
+		if curr != i {
+			il[curr] = v
+		}
+		curr++
+	}
+	return il[0:curr]
 }
 
 type Item struct {

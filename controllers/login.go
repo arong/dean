@@ -21,11 +21,18 @@ type AuthController struct {
 // @Failure 403 user not exist
 // @router /login [post]
 func (l *AuthController) Login() {
+	var err error
 	resp := &BaseResponse{Code: -1}
 	req := manager.LoginRequest{}
 	token := ""
 
-	err := json.Unmarshal([]byte(l.Ctx.Input.RequestBody), &req)
+	data, ok := l.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid request"
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &req)
 	if err != nil {
 		logs.Debug("[AuthController::Login] invalid input data")
 		resp.Msg = "invalid request"
@@ -34,7 +41,7 @@ func (l *AuthController) Login() {
 
 	err = req.Check()
 	if err != nil {
-		logs.Info("[UserController::Login] invalid request parameter", "err", err)
+		logs.Info("[AuthController::Login] invalid request parameter", "err", err)
 		resp.Msg = err.Error()
 		goto Out
 	}
@@ -67,7 +74,14 @@ func (l *AuthController) Update() {
 	resp := &BaseResponse{Code: -1}
 	req := manager.UpdateRequest{}
 
-	err := json.Unmarshal([]byte(l.Ctx.Input.RequestBody), &req)
+	var err error
+	data, ok := l.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid request"
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &req)
 	if err != nil {
 		resp.Msg = "invalid request"
 		resp.Code = base.ErrInvalidInput
@@ -76,7 +90,7 @@ func (l *AuthController) Update() {
 
 	// password is sha256 encoded text
 	if req.Password == "" || len(req.Password) != sha256.BlockSize {
-		logs.Debug("[UserController::Update] login failed", err)
+		logs.Debug("[AuthController::Update] login failed", err)
 		resp.Msg = "invalid password"
 		goto Out
 	}
@@ -84,7 +98,7 @@ func (l *AuthController) Update() {
 	{
 		loginInfo, ok := l.Ctx.Input.GetData(base.Private).(manager.LoginInfo)
 		if !ok {
-			logs.Warn("[UserController::Update] bug found")
+			logs.Warn("[AuthController::Update] bug found")
 			resp.Code = base.ErrInternal
 			goto Out
 		}
@@ -94,7 +108,7 @@ func (l *AuthController) Update() {
 
 	err = manager.Ac.Update(&req)
 	if err != nil {
-		logs.Debug("[UserController::Update] Update failed", err)
+		logs.Debug("[AuthController::Update] Update failed", err)
 		resp.Msg = err.Error()
 		goto Out
 	}
@@ -116,7 +130,14 @@ func (l *AuthController) Reset() {
 	resp := &BaseResponse{Code: -1}
 	req := manager.ResetPassReq{}
 
-	err := json.Unmarshal([]byte(l.Ctx.Input.RequestBody), &req)
+	var err error
+	data, ok := l.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid request"
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &req)
 	if err != nil {
 		resp.Msg = "[UserController::Reset] invalid request"
 		goto Out
@@ -142,7 +163,7 @@ func (l *AuthController) Reset() {
 
 	err = manager.Ac.ResetAllStudentPassword(&req)
 	if err != nil {
-		logs.Debug("[UserController::Reset] login failed", err)
+		logs.Debug("[AuthController::Reset] login failed", err)
 		resp.Msg = err.Error()
 		goto Out
 	}
@@ -164,16 +185,23 @@ func (l *AuthController) Logout() {
 	resp := &BaseResponse{Code: -1}
 	req := base.BaseRequest{}
 
-	err := json.Unmarshal([]byte(l.Ctx.Input.RequestBody), &req)
+	var err error
+	data, ok := l.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid request"
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &req)
 	if err != nil {
-		logs.Debug("[UserController::Login] invalid data")
+		logs.Debug("[AuthController::Logout] invalid data")
 		resp.Msg = "invalid data"
 		goto Out
 	}
 
 	err = manager.Ac.Logout(req.Token)
 	if err != nil {
-		logs.Debug("[UserController::Login] login failed", err)
+		logs.Debug("[AuthController::Logout] login failed", err)
 		resp.Msg = err.Error()
 		goto Out
 	}

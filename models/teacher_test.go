@@ -105,28 +105,36 @@ func TestTeacherList_Filter(t *testing.T) {
 		f TeacherFilter
 	}
 	tests := []struct {
-		name string
-		tl   TeacherList
-		args args
-		want TeacherList
+		name  string
+		tl    TeacherList
+		args  args
+		want  int
+		want1 TeacherList
 	}{
 		{
-			name: "gender filter",
-			tl:   teachers,
-			args: args{f: TeacherFilter{Gender: eGenderMale}},
-			want: TeacherList{teachers[0], teachers[1], teachers[2], teachers[3], teachers[4], teachers[7], teachers[8]},
+			name:  "gender filter",
+			tl:    teachers,
+			args:  args{f: TeacherFilter{Gender: eGenderMale, CommPage: base.CommPage{1, len(teachers)}}},
+			want:  7,
+			want1: TeacherList{teachers[0], teachers[1], teachers[2], teachers[3], teachers[4], teachers[7], teachers[8]},
 		},
 		{
-			name: "filter name",
-			tl:   teachers,
-			args: args{f: TeacherFilter{Name: "non-existing-name"}},
-			want: TeacherList{},
+			name:  "filter name",
+			tl:    teachers,
+			args:  args{f: TeacherFilter{Name: "non-existing-name", CommPage: base.CommPage{Page: 1, Size: len(teachers)}}},
+			want:  0,
+			want1: TeacherList{},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.tl.Filter(tt.args.f); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("TeacherList.Filter() = %v, want %v", got, tt.want)
+			got, got1 := tt.tl.Filter(tt.args.f)
+			if got != tt.want {
+				t.Errorf("TeacherList.Filter() got = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(got1, tt.want1) {
+				t.Errorf("TeacherList.Filter() got1 = %v, want %v", got1, tt.want1)
 			}
 		})
 	}

@@ -24,10 +24,17 @@ type QuestionnaireController struct {
 // @router /add [post]
 func (q *QuestionnaireController) Add() {
 	var id int
-	var questionnaire models.QuestionnaireInfo
+	var request models.QuestionnaireInfo
 	resp := BaseResponse{Code: -1}
 
-	err := json.Unmarshal(q.Ctx.Input.RequestBody, &questionnaire)
+	var err error
+	data, ok := q.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid request"
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		logs.Debug("[QuestionnaireController::Add] invalid json", "err", err)
 		resp.Msg = msgInvalidJSON
@@ -37,27 +44,27 @@ func (q *QuestionnaireController) Add() {
 	{
 		private := q.Ctx.Input.GetData(base.Private)
 		if l, ok := private.(manager.LoginInfo); ok {
-			questionnaire.Editor = l.LoginName
+			request.Editor = l.LoginName
 		} else {
 			logs.Debug("[QuestionnaireController::Add] invalid user info", "private", private)
 		}
 	}
 
-	if questionnaire.QuestionnaireID != 0 {
-		logs.Debug("[QuestionnaireController::Add] invalid questionnaire id")
+	if request.QuestionnaireID != 0 {
+		logs.Debug("[QuestionnaireController::Add] invalid request id")
 		resp.Code = base.ErrInvalidParameter
 		resp.Msg = "no id shall be specified"
 		goto Out
 	}
 
-	err = questionnaire.Check()
+	err = request.Check()
 	if err != nil {
 		resp.Code = base.ErrInvalidParameter
 		resp.Msg = err.Error()
 		goto Out
 	}
 
-	id, err = manager.QuestionnaireManager.Add(&questionnaire)
+	id, err = manager.QuestionnaireManager.Add(&request)
 	if err != nil {
 		resp.Msg = err.Error()
 		logs.Info("[QuestionnaireController::Add] AddUser failed", "err", err)
@@ -82,15 +89,22 @@ func (q *QuestionnaireController) Update() {
 	var request models.QuestionnaireInfo
 	resp := BaseResponse{Code: -1}
 
-	err := json.Unmarshal(q.Ctx.Input.RequestBody, &request)
+	var err error
+	data, ok := q.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid request"
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
-		logs.Debug("[StudentController::Update] invalid json", "err", err)
+		logs.Debug("[QuestionnaireController::Update] invalid json", "err", err)
 		resp.Msg = msgInvalidJSON
 		goto Out
 	}
 
 	if request.QuestionnaireID == 0 {
-		logs.Debug("[StudentController::Update] invalid questionnaire id")
+		logs.Debug("[QuestionnaireController::Update] invalid questionnaire id")
 		resp.Code = base.ErrInvalidParameter
 		resp.Msg = "id shall be specified"
 		goto Out
@@ -98,7 +112,7 @@ func (q *QuestionnaireController) Update() {
 
 	err = request.Check()
 	if err != nil {
-		logs.Info("[StudentController::Update] Check failed", "err", err)
+		logs.Info("[QuestionnaireController::Update] Check failed", "err", err)
 		resp.Code = base.ErrInvalidParameter
 		resp.Msg = err.Error()
 		goto Out
@@ -107,7 +121,7 @@ func (q *QuestionnaireController) Update() {
 	err = manager.QuestionnaireManager.Update(&request)
 	if err != nil {
 		resp.Msg = err.Error()
-		logs.Info("[StudentController::Update] Update failed", "err", err)
+		logs.Info("[QuestionnaireController::Update] Update failed", "err", err)
 		goto Out
 	}
 
@@ -128,7 +142,14 @@ func (q *QuestionnaireController) Delete() {
 	var request base.SingleID
 	resp := BaseResponse{}
 
-	err := json.Unmarshal(q.Ctx.Input.RequestBody, &request)
+	var err error
+	data, ok := q.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid request"
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		logs.Debug("[QuestionnaireController::Delete] invalid json", "err", err)
 		resp.Msg = msgInvalidJSON
@@ -182,7 +203,14 @@ func (q *QuestionnaireController) Submit() {
 	resp := BaseResponse{}
 	request := models.QuestionnaireSubmit{}
 
-	err := json.Unmarshal(q.Ctx.Input.RequestBody, &request)
+	var err error
+	data, ok := q.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid request"
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		resp.Code = base.ErrInvalidInput
 		resp.Msg = "[QuestionnaireController::Submit] invalid data format"

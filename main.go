@@ -94,7 +94,7 @@ var filterUser = func(ctx *context.Context) {
 		}
 	}
 
-	ctx.Input.RequestBody, _ = json.Marshal(request.Data)
+	//ctx.Input.RequestBody, _ = json.Marshal(request.Data)
 	ctx.Input.SetData(base.Data, request.Data)
 	return
 Out:

@@ -29,7 +29,14 @@ func (c *ClassController) Add() {
 	var id int
 
 	logs.Trace("[ClassController::Add]", "request", string(c.Ctx.Input.RequestBody))
-	err := json.Unmarshal(c.Ctx.Input.RequestBody, &request)
+	var err error
+	data, ok := c.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid request"
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		resp.Msg = msgInvalidJSON
 		logs.Debug("[ClassController::Add] invalid json")
@@ -94,24 +101,32 @@ Out:
 // @Success 200 {object} models.User
 // @router /update [post]
 func (u *ClassController) Update() {
-	var class models.Class
+	var request models.Class
 	resp := BaseResponse{Code: -1}
-	err := json.Unmarshal(u.Ctx.Input.RequestBody, &class)
+
+	var err error
+	data, ok := u.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid request"
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		logs.Debug("[ClassController::Update] invalid json input", "err", err)
 		resp.Msg = msgInvalidJSON
 		goto Out
 	}
 
-	class.TeacherList = class.TeacherList.Deduplicate()
-	err = class.Check()
+	request.TeacherList = request.TeacherList.Deduplicate()
+	err = request.Check()
 	if err != nil {
 		logs.Debug("[ClassController::Update] invalid data", "err", err)
 		resp.Msg = msgInvalidParam
 		goto Out
 	}
 
-	err = manager.Cm.ModifyClass(&class)
+	err = manager.Cm.ModifyClass(&request)
 	if err != nil {
 		logs.Debug("[ClassController::Update] ModifyClass failed", "err", err)
 		resp.Msg = err.Error()
@@ -142,7 +157,14 @@ func (c *ClassController) Delete() {
 	resp := BaseResponse{Code: -1}
 	ret := models.ClassIDList{}
 
-	err := json.Unmarshal(c.Ctx.Input.RequestBody, &request)
+	var err error
+	data, ok := c.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid request"
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		logs.Debug("[ClassController::Update] invalid json input", "err", err)
 		resp.Msg = msgInvalidJSON

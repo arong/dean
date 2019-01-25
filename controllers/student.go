@@ -25,13 +25,28 @@ type StudentController struct {
 // @router /add [post]
 func (u *StudentController) Add() {
 	var id int64
-	var user models.StudentInfo
+	var err error
+	user := models.StudentInfo{}
 	resp := BaseResponse{Code: -1}
 
-	err := json.Unmarshal(u.Ctx.Input.RequestBody, &user)
+	data := u.Ctx.Input.GetData(base.Data)
+	if data == nil {
+		resp.Msg = "invalid input"
+		logs.Warn("[StudentController::Add] empty input found")
+		goto Out
+	}
+
+	err = json.Unmarshal(data.(json.RawMessage), &user)
+	if err != nil {
+		logs.Debug("[StudentController::Add] invalid json", "err", err, "data", string(data.(json.RawMessage)))
+		resp.Msg = msgInvalidJSON
+		goto Out
+	}
+
+	err = user.Check()
 	if err != nil {
 		logs.Debug("[StudentController::Add] invalid json", "err", err)
-		resp.Msg = msgInvalidJSON
+		resp.Msg = err.Error()
 		goto Out
 	}
 
@@ -44,7 +59,10 @@ func (u *StudentController) Add() {
 
 	resp.Code = 0
 	resp.Msg = msgSuccess
-	resp.Data = id
+	resp.Data = struct {
+		ID int64 `json:"id"`
+	}{ID: id}
+
 Out:
 	u.Data["json"] = resp
 	u.ServeJSON()
@@ -55,13 +73,22 @@ Out:
 // @Param	grade		query 	string	true		"The grade of class"
 // @Param	index		query 	string	true		"The number of class"
 // @Success 200 {object} models.User
-// @router /list [post]
+// @router /filter [post]
 func (u *StudentController) Filter() {
+	var err error
 	request := models.StudentFilter{}
 	resp := base.BaseResponse{}
 	ret := base.CommList{}
 
-	err := json.Unmarshal(u.Ctx.Input.RequestBody, &request)
+	data, ok := u.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid input"
+		logs.Warn("[StudentController::Add] empty input found", "data", data)
+		goto Out
+	}
+
+	logs.Debug("[] ", "data", string(data))
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		logs.Debug("[StudentController::Filter] invalid input", "err", err)
 		resp.Code = base.ErrInvalidInput
@@ -89,7 +116,7 @@ Out:
 // @Param	uid		path 	string	true		"The key for static block"
 // @Success 200 {object} models.User
 // @Failure 403 :uid is empty
-// @router /info [get]
+// @router /info/:uid [get]
 func (u *StudentController) GetInfo() {
 	resp := &BaseResponse{Code: -1}
 	tmp := u.GetString(":uid")
@@ -119,10 +146,18 @@ Out:
 // @Failure 403 :uid is not int
 // @router /update [post]
 func (u *StudentController) Update() {
+	var err error
 	resp := &BaseResponse{Code: -1}
 	var user models.StudentInfo
 
-	err := json.Unmarshal(u.Ctx.Input.RequestBody, &user)
+	data, ok := u.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid input"
+		logs.Warn("[StudentController::Update] empty input found", "data", data)
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &user)
 	if err != nil {
 		resp.Msg = msgInvalidJSON
 		goto Out
@@ -142,7 +177,7 @@ Out:
 }
 
 type delStuReq struct {
-	IDList []int64
+	IDList models.Int64List `json:"id_list"`
 }
 
 // @Title Delete
@@ -152,14 +187,29 @@ type delStuReq struct {
 // @Failure 403 uid is empty
 // @router /delete [post]
 func (u *StudentController) Delete() {
+	var err error
 	resp := BaseResponse{Code: -1}
 	request := delStuReq{}
 	failed := []int64{}
 
-	err := json.Unmarshal(u.Ctx.Input.RequestBody, &request)
+	data, ok := u.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid input"
+		logs.Warn("[StudentController::Delete] empty input found", "data", data)
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		logs.Debug("[StudentController::Delete] invalid json", "err", err)
 		resp.Msg = msgInvalidJSON
+		goto Out
+	}
+
+	request.IDList = request.IDList.RemoveZeroNegative()
+	if len(request.IDList) == 0 {
+		logs.Debug("[StudentController::Delete] empty id list")
+		resp.Msg = msgInvalidParam
 		goto Out
 	}
 
@@ -169,6 +219,7 @@ func (u *StudentController) Delete() {
 		resp.Msg = err.Error()
 		goto Out
 	}
+
 	resp.Code = 0
 	resp.Msg = msgSuccess
 	if len(failed) > 0 {

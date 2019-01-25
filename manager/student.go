@@ -89,6 +89,10 @@ func (s *StudentManager) Init(list models.StudentList) {
 			s.uuidMap[v.RegisterID] = i
 		}
 	}
+
+	if len(s.list) != len(s.idMap) || len(s.list) != len(s.uuidMap) {
+		logs.Error("logic error")
+	}
 }
 
 func (um *StudentManager) AddStudent(u models.StudentInfo) (int64, error) {
@@ -140,6 +144,9 @@ func (um *StudentManager) DelStudent(uidList []int64) ([]int64, error) {
 	failed := []int64{}
 	load := []int64{}
 
+	um.mutex.Lock()
+	defer um.mutex.Unlock()
+
 	for _, uid := range uidList {
 		k, ok := um.idMap[uid]
 		if !ok {
@@ -189,6 +196,7 @@ func (um *StudentManager) Filter(f models.StudentFilter) base.CommList {
 	resp := base.CommList{}
 	ret := models.StudentList{}
 
+	logs.Debug("[]", "count", len(um.list))
 	resp.Total, ret = um.list.Filter(f)
 	sort.Sort(ret)
 	resp.List = ret

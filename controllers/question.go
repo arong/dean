@@ -28,31 +28,38 @@ type QuestionFilter struct {
 // @router /add [post]
 func (q *QuestionController) Add() {
 	var id int
-	var question models.QuestionInfo
+	var request models.QuestionInfo
 	resp := BaseResponse{Code: -1}
 
-	err := json.Unmarshal(q.Ctx.Input.RequestBody, &question)
+	var err error
+	data, ok := q.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid request"
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		logs.Debug("[QuestionController::Add] invalid json", "err", err)
 		resp.Msg = msgInvalidJSON
 		goto Out
 	}
 
-	if question.QuestionnaireID == 0 {
+	if request.QuestionnaireID == 0 {
 		logs.Debug("[QuestionController::Add] invalid questionnaire id")
 		resp.Code = base.ErrInvalidParameter
 		resp.Msg = "invalid questionnaire id"
 		goto Out
 	}
 
-	err = question.Check()
+	err = request.Check()
 	if err != nil {
 		resp.Code = base.ErrInvalidParameter
 		resp.Msg = err.Error()
 		goto Out
 	}
 
-	id, err = manager.QuestionnaireManager.AddQuestion(&question)
+	id, err = manager.QuestionnaireManager.AddQuestion(&request)
 	if err != nil {
 		resp.Msg = err.Error()
 		logs.Info("[QuestionController::Add] AddUser failed")
@@ -78,7 +85,14 @@ func (q *QuestionController) Update() {
 	var request models.QuestionInfo
 	resp := BaseResponse{Code: -1}
 
-	err := json.Unmarshal(q.Ctx.Input.RequestBody, &request)
+	var err error
+	data, ok := q.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid request"
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		logs.Debug("[QuestionController::Update] invalid json", "err", err)
 		resp.Msg = msgInvalidJSON
@@ -119,7 +133,14 @@ func (q *QuestionController) Delete() {
 	var request base.SingleID
 	resp := BaseResponse{Code: -1}
 
-	err := json.Unmarshal(q.Ctx.Input.RequestBody, &request)
+	var err error
+	data, ok := q.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid request"
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		logs.Debug("[QuestionController::Delete] invalid json", "err", err)
 		resp.Msg = msgInvalidJSON
@@ -157,7 +178,14 @@ func (q *QuestionController) Filter() {
 	request := QuestionFilter{}
 	ret := models.QuestionList{}
 
-	err := json.Unmarshal(q.Ctx.Input.RequestBody, &request)
+	var err error
+	data, ok := q.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid request"
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		logs.Warn("[QuestionController::Filter] invalid input data", "request", q.Ctx.Input.RequestBody)
 		resp.Code = base.ErrInvalidInput
@@ -196,7 +224,14 @@ func (q *QuestionController) Info() {
 	request := base.SingleID{}
 	ret := &models.QuestionInfo{}
 
-	err := json.Unmarshal(q.Ctx.Input.RequestBody, &request)
+	var err error
+	data, ok := q.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid request"
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		logs.Warn("[QuestionController::Info] invalid input data", "request", q.Ctx.Input.RequestBody)
 		resp.Code = base.ErrInvalidInput

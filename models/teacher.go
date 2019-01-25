@@ -122,8 +122,12 @@ type TeacherFilter struct {
 	Mobile string `json:"mobile"`
 }
 
-func (tl TeacherList) Filter(f TeacherFilter) TeacherList {
+func (tl TeacherList) Filter(f TeacherFilter) (int, TeacherList) {
 	list := TeacherList{}
+	start, end := f.GetRange()
+
+	i := 0
+	total := 0
 	for _, v := range tl {
 		if v.Status != base.StatusValid {
 			continue
@@ -136,9 +140,18 @@ func (tl TeacherList) Filter(f TeacherFilter) TeacherList {
 		if f.Name != "" && f.Name != v.Name {
 			continue
 		}
-		list = append(list, v)
+
+		if f.Mobile != "" && f.Mobile != v.Mobile {
+			continue
+		}
+
+		if i >= start && i < end {
+			list = append(list, v)
+		}
+		i++
+		total++
 	}
-	return list
+	return total, list
 }
 
 //go:generate mockgen -destination=../mocks./mock_teacher.go -package mocks github.com/arong/dean/models TeacherStore

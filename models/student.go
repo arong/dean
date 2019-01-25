@@ -81,6 +81,10 @@ func (s StudentList) Filter(f StudentFilter) (int, StudentList) {
 	i := 0
 	total := 0
 	for _, v := range s {
+		if v.Status == base.StatusDeleted {
+			continue
+		}
+
 		if f.Name != "" && f.Name != v.Name {
 			continue
 		}

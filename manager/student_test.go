@@ -267,16 +267,31 @@ func TestStudentManager_Filter(t *testing.T) {
 	}
 
 	tests := []struct {
-		name string
-		list models.StudentList
-		args args
-		want base.CommList
+		name   string
+		list   models.StudentList
+		args   args
+		want   base.CommList
+		before func(*StudentManager)
 	}{
 		{
 			name: "normal list",
 			list: students,
 			args: args{f: models.StudentFilter{CommPage: base.CommPage{Page: 1, Size: len(students)}}},
 			want: base.CommList{Total: len(students), List: students},
+		},
+		{
+			name: "after delete all",
+			list: students,
+			args: args{f: models.StudentFilter{CommPage: base.CommPage{Page: 1, Size: len(students)}}},
+			want: base.CommList{Total: 0, List: models.StudentList{}},
+			before: func(manager *StudentManager) {
+				ids := []int64{}
+				for _, v := range students {
+					ids = append(ids, v.StudentID)
+				}
+				mockStore.EXPECT().DeleteStudent(gomock.Any()).Return(nil)
+				manager.DelStudent(ids)
+			},
 		},
 	}
 
@@ -285,6 +300,9 @@ func TestStudentManager_Filter(t *testing.T) {
 			um := &StudentManager{store: mockStore}
 			um.Init(tt.list)
 
+			if tt.before != nil {
+				tt.before(um)
+			}
 			if got := um.Filter(tt.args.f); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("StudentManager.Filter() = %v, want %v", got, tt.want)
 			}

@@ -25,15 +25,23 @@ func (s *SubjectController) Add() {
 	resp := base.BaseResponse{}
 	request := models.SubjectInfo{}
 
-	err := json.Unmarshal(s.Ctx.Input.RequestBody, &request)
+	var err error
+	data, ok := s.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid input"
+		logs.Warn("[SubjectController::Add] empty input found", "data", data)
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		resp.Msg = msgInvalidJSON
-		logs.Debug("[ClassController::Add] invalid json")
+		logs.Debug("[SubjectController::Add] invalid json")
 		goto Out
 	}
 
 	if request.Name == "" || request.Key == "" {
-		logs.Debug("[ClassController::Add] invalid name")
+		logs.Debug("[SubjectController::Add] invalid name")
 		resp.Code = base.ErrInvalidParameter
 		resp.Msg = "invalid name"
 		goto Out
@@ -41,7 +49,7 @@ func (s *SubjectController) Add() {
 
 	request.ID, err = manager.Sm.Add(request)
 	if err != nil {
-		logs.Debug("[ClassController::Add] add failed", "err", err)
+		logs.Debug("[SubjectController::Add] add failed", "err", err)
 		resp.Code = base.ErrInvalidParameter
 		resp.Msg = err.Error()
 		goto Out
@@ -63,22 +71,30 @@ func (s *SubjectController) Update() {
 	resp := base.BaseResponse{}
 	request := models.SubjectInfo{}
 
-	err := json.Unmarshal(s.Ctx.Input.RequestBody, &request)
+	var err error
+	data, ok := s.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid input"
+		logs.Warn("[SubjectController::Update] empty input found", "data", data)
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		resp.Msg = msgInvalidJSON
-		logs.Debug("[ClassController::Update] invalid json")
+		logs.Debug("[SubjectController::Update] invalid json")
 		goto Out
 	}
 
 	if request.ID == 0 {
-		logs.Debug("[ClassController::Update] invalid id")
+		logs.Debug("[SubjectController::Update] invalid id")
 		resp.Code = base.ErrInvalidParameter
 		resp.Msg = "invalid id"
 		goto Out
 	}
 
 	if request.Key == "" {
-		logs.Debug("[ClassController::Update] invalid name")
+		logs.Debug("[SubjectController::Update] invalid name")
 		resp.Code = base.ErrInvalidParameter
 		resp.Msg = "invalid name"
 		goto Out
@@ -86,7 +102,7 @@ func (s *SubjectController) Update() {
 
 	err = manager.Sm.Update(request)
 	if err != nil {
-		logs.Debug("[ClassController::Update] add failed", "err", err)
+		logs.Debug("[SubjectController::Update] add failed", "err", err)
 		resp.Code = base.ErrInvalidParameter
 		resp.Msg = err.Error()
 		goto Out
@@ -107,7 +123,15 @@ func (s *SubjectController) Delete() {
 	failedList := []int{}
 	resp := base.BaseResponse{}
 
-	err := json.Unmarshal([]byte(s.Ctx.Input.RequestBody), &request)
+	var err error
+	data, ok := s.Ctx.Input.GetData(base.Data).(json.RawMessage)
+	if !ok {
+		resp.Msg = "invalid input"
+		logs.Warn("[SubjectController::Delete] empty input found", "data", data)
+		goto Out
+	}
+
+	err = json.Unmarshal(data, &request)
 	if err != nil {
 		logs.Debug("[SubjectController::Delete] invalid request", "err", err)
 		resp.Code = base.ErrInvalidInput
